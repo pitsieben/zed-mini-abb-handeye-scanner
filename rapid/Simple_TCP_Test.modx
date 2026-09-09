@@ -1,0 +1,91 @@
+MODULE Simple_TCP_Test
+
+    ! ==========================================================
+    ! CONFIGURATION: Enter your PC IP address and port here
+    ! ==========================================================
+    VAR string pc_ip := "192.168.0.7";   ! <-- Your PC's Service Port IP
+    VAR num pc_port := 5000;
+    
+    VAR socketdev client_socket;
+    VAR bool is_connected := FALSE;
+
+    PROC main()
+        VAR robtarget current_pos;
+        VAR string msg;
+        VAR string ack;
+        VAR num i;
+        
+        TPErase;
+        TPWrite "============================";
+        TPWrite " ABB <-> PC TCP TEST";
+        TPWrite " Connecting to:";
+        TPWrite pc_ip + ":" + NumToStr(pc_port, 0);
+        TPWrite "============================";
+        
+        ! 1. Initialize and connect socket (with 4 second timeout)
+        SocketCreate client_socket;
+        SocketConnect client_socket, pc_ip, pc_port \Time:=4;
+        is_connected := TRUE;
+        
+        TPWrite "SUCCESS: Connected to PC!";
+        WaitTime 1.0;
+        
+        ! 2. Send initial test handshake ping
+        TPWrite "Sending handshake ping...";
+        SocketSend client_socket \Str:="HELLO_FROM_ABB_ROBOT";
+        SocketReceive client_socket \Str:=ack \Time:=3;
+        TPWrite "Received reply: " + ack;
+        WaitTime 1.0;
+        
+        ! 3. Read and send current robot position 5 times (NO ROBOT MOTION REQUIRED)
+        FOR i FROM 1 TO 5 DO
+            ! Read exact live pose of the tool flange
+            current_pos := CRobT(\Tool:=tool0 \WObj:=wobj0);
+            
+            ! Format: X,Y,Z,Q1,Q2,Q3,Q4 (mm and quaternion)
+            msg := NumToStr(current_pos.trans.x, 2) + "," +
+                   NumToStr(current_pos.trans.y, 2) + "," +
+                   NumToStr(current_pos.trans.z, 2) + "," +
+                   NumToStr(current_pos.rot.q1, 5) + "," +
+                   NumToStr(current_pos.rot.q2, 5) + "," +
+                   NumToStr(current_pos.rot.q3, 5) + "," +
+                   NumToStr(current_pos.rot.q4, 5);
+                   
+            TPWrite "Sending Pose #" + NumToStr(i, 0) + "...";
+            SocketSend client_socket \Str:=msg;
+            
+            ! Wait for PC to acknowledge
+            SocketReceive client_socket \Str:=ack \Time:=3;
+            TPWrite "PC replied: " + ack;
+            
+            WaitTime 1.0;
+        ENDFOR
+        
+        ! 4. Send DONE and close socket
+        SocketSend client_socket \Str:="DONE";
+        SocketReceive client_socket \Str:=ack \Time:=2;
+        SocketClose client_socket;
+        is_connected := FALSE;
+        
+        TPWrite "============================";
+        TPWrite " TEST COMPLETE: ALL PASSED!";
+        TPWrite "============================";
+
+    ERROR
+        IF ERRNO = ERR_SOCK_TIMEOUT THEN
+            TPWrite "ERROR: Connection Timed Out!";
+            TPWrite "Check PC IP, Port & Firewall.";
+        ELSEIF ERRNO = ERR_SOCK_CLOSED THEN
+            TPWrite "ERROR: Socket Closed by PC.";
+        ELSE
+            TPWrite "ERROR Code: " + NumToStr(ERRNO, 0);
+        ENDIF
+        
+        IF is_connected THEN
+            SocketClose client_socket;
+        ENDIF
+        
+        TPWrite "Test aborted.";
+    ENDPROC
+
+ENDMODULE

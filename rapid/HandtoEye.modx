@@ -1,0 +1,106 @@
+MODULE prc_project
+
+    PERS wobjdata wobjBase := [
+        FALSE, TRUE, "",
+        [[0,0,0],[1,0,0,0]],
+        [[0,0,0],[1,0,0,0]]
+    ];
+    PERS tooldata tool_0 := [
+        TRUE,
+        [[0,0,0],[1,0,0,0]],
+        [0.001, [0,0,0.001], [1,0,0,0],0,0,0]
+        ];
+    VAR socketdev client_socket;
+    VAR string pc_ip := "192.168.0.7"; 
+    VAR num pc_port := 5000;
+    VAR bool socket_connected := FALSE;
+
+
+    PROC main()
+        ConfL \Off;
+        ConfJ \On;
+        
+        SocketCreate client_socket;
+        ! Attempt to connect with a 3-second timeout
+        SocketConnect client_socket, pc_ip, pc_port \Time:=3;
+        socket_connected := TRUE;
+        TPWrite "Successfully connected to PC.";
+MoveAbsJ [[-90.000,0.000,20.000,0.000,-20.000,0.000], [9e9,9e9,9e9,9e9,9e9,9e9]], v500, fine, tool_0\WObj:=wobjBase;
+        SendPoseAndCapture [[-100.403,-2182.780,1085.480], [0.140451,-0.017074,0.982706,0.119463], [-2,0,-2,0], [9e9,9e9,9e9,9e9,9e9,9e9]], v500;
+        SendPoseAndCapture [[-54.998,-2182.780,1085.480], [0.147263,-0.691602,0.706488,0.029565], [-2,0,-3,0], [9e9,9e9,9e9,9e9,9e9,9e9]], v500;
+        SendPoseAndCapture [[-9.593,-2182.780,1085.480], [0.108494,-0.698734,0.703743,0.068889], [-2,0,-3,0], [9e9,9e9,9e9,9e9,9e9,9e9]], v500;
+        SendPoseAndCapture [[35.812,-2182.780,1085.480], [-0.068889,0.703743,-0.698734,-0.108494], [-1,-1,-2,0], [9e9,9e9,9e9,9e9,9e9,9e9]], v500;
+        SendPoseAndCapture [[81.217,-2182.780,1085.480], [-0.029565,0.706488,-0.691602,-0.147263], [-1,-1,-2,0], [9e9,9e9,9e9,9e9,9e9,9e9]], v500;
+        SendPoseAndCapture [[126.623,-2182.780,1085.480], [-0.140451,0.017074,0.982706,0.119463], [-1,-1,-1,0], [9e9,9e9,9e9,9e9,9e9,9e9]], v500;
+        SendPoseAndCapture [[126.623,-2142.780,1085.480], [-0.141103,0.010390,0.987268,0.072694], [-1,-1,-1,0], [9e9,9e9,9e9,9e9,9e9,9e9]], v500;
+        SendPoseAndCapture [[126.623,-2102.780,1085.480], [-0.141442,0.003488,0.989639,0.024407], [-1,-1,-1,0], [9e9,9e9,9e9,9e9,9e9,9e9]], v500;
+        SendPoseAndCapture [[126.623,-2062.780,1085.480], [-0.141442,-0.003488,0.989639,-0.024407], [-1,-1,-1,0], [9e9,9e9,9e9,9e9,9e9,9e9]], v500;
+        SendPoseAndCapture [[126.623,-2022.780,1085.480], [-0.141103,-0.010390,0.987268,-0.072694], [-1,-1,-1,0], [9e9,9e9,9e9,9e9,9e9,9e9]], v500;
+        SendPoseAndCapture [[126.623,-1982.780,1085.480], [-0.140451,-0.017074,0.982706,-0.119463], [-1,-1,-1,0], [9e9,9e9,9e9,9e9,9e9,9e9]], v500;
+        SendPoseAndCapture [[81.217,-1982.780,1085.480], [-0.147263,-0.691602,0.706488,-0.029565], [-1,-1,-2,0], [9e9,9e9,9e9,9e9,9e9,9e9]], v500;
+        SendPoseAndCapture [[35.812,-1982.780,1085.480], [-0.108494,-0.698734,0.703743,-0.068889], [-1,-1,-2,0], [9e9,9e9,9e9,9e9,9e9,9e9]], v500;
+        SendPoseAndCapture [[-9.593,-1982.780,1085.480], [0.068889,0.703743,-0.698734,0.108494], [-2,0,-3,0], [9e9,9e9,9e9,9e9,9e9,9e9]], v500;
+        SendPoseAndCapture [[-54.998,-1982.780,1085.480], [0.029565,0.706488,-0.691602,0.147263], [-2,0,-3,0], [9e9,9e9,9e9,9e9,9e9,9e9]], v500;
+        SendPoseAndCapture [[-100.403,-1982.780,1085.480], [0.140451,0.017074,0.982706,-0.119463], [-2,0,-2,0], [9e9,9e9,9e9,9e9,9e9,9e9]], v500;
+        SendPoseAndCapture [[-100.403,-2022.780,1085.480], [0.141103,0.010390,0.987268,-0.072694], [-2,0,-2,0], [9e9,9e9,9e9,9e9,9e9,9e9]], v500;
+        SendPoseAndCapture [[-100.403,-2062.780,1085.480], [0.141442,0.003488,0.989639,-0.024407], [-2,0,-2,0], [9e9,9e9,9e9,9e9,9e9,9e9]], v500;
+        SendPoseAndCapture [[-100.403,-2102.780,1085.480], [0.141442,-0.003488,0.989639,0.024407], [-2,0,-2,0], [9e9,9e9,9e9,9e9,9e9,9e9]], v500;
+        SendPoseAndCapture [[-100.403,-2142.780,1085.480], [0.141103,-0.010390,0.987268,0.072694], [-2,0,-2,0], [9e9,9e9,9e9,9e9,9e9,9e9]], v500;
+        MoveAbsJ [[-90.000,0.000,20.000,0.000,-20.000,0.000], [9e9,9e9,9e9,9e9,9e9,9e9]], v500, fine, tool_0\WObj:=wobjBase;
+        IF socket_connected THEN
+            SocketSend client_socket \Str:="DONE";
+            SocketClose client_socket;
+        ENDIF
+        
+    ERROR
+        IF ERRNO = ERR_SOCK_TIMEOUT OR ERRNO = ERR_SOCK_CLOSED THEN
+            TPWrite "Could not connect to PC socket. Running offline.";
+            socket_connected := FALSE;
+            TRYNEXT;
+        ELSE
+            TPWrite "Unknown error on connection.";
+            socket_connected := FALSE;
+            TRYNEXT;
+        ENDIF
+    
+    ENDPROC
+    PROC SendPoseAndCapture(robtarget p, speeddata spd)
+        VAR robtarget p_curr;
+        VAR string msg;
+        VAR string ack;
+        
+        ! Move to position (always fine for calibration)
+        MoveJ p, spd, fine, tool_0\WObj:=wobjBase;
+        
+        WaitRob \InPos;
+        WaitTime 0.5;
+        
+        IF socket_connected THEN
+            p_curr := CRobT(\Tool:=tool_0 \WObj:=wobjBase);
+            
+            msg := NumToStr(p_curr.trans.x, 3) + "," +
+                   NumToStr(p_curr.trans.y, 3) + "," +
+                   NumToStr(p_curr.trans.z, 3) + "," +
+                   NumToStr(p_curr.rot.q1, 5) + "," +
+                   NumToStr(p_curr.rot.q2, 5) + "," +
+                   NumToStr(p_curr.rot.q3, 5) + "," +
+                   NumToStr(p_curr.rot.q4, 5);
+                   
+            SocketSend client_socket \Str:=msg;
+            ! Wait for PC to respond, timeout after 5 seconds
+            SocketReceive client_socket \Str:=ack \Time:=5; 
+        ENDIF
+        
+    ERROR
+        IF ERRNO = ERR_SOCK_TIMEOUT OR ERRNO = ERR_SOCK_CLOSED THEN
+            TPWrite "TCP disconnected during capture. Skipping data send.";
+            socket_connected := FALSE;
+            TRYNEXT;
+        ELSE
+            TPWrite "Unknown TCP error.";
+            socket_connected := FALSE;
+            TRYNEXT;
+        ENDIF
+    ENDPROC
+
+ENDMODULE

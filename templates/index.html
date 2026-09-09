@@ -1,0 +1,1460 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ABB Robot 3D Scanning Studio // Web Interface</title>
+  <script src="/static/three.min.js"></script>
+  <script src="/static/OrbitControls.js"></script>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+    }
+    body {
+      background-color: #0b0b0e;
+      color: #e4e4e7;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "JetBrains Mono", monospace;
+      height: 100vh;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* Top Studio Header */
+    header {
+      background-color: #121217;
+      border-bottom: 1px solid #1f1f28;
+      height: 52px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 16px;
+      z-index: 20;
+    }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .brand-logo {
+      width: 14px;
+      height: 14px;
+      background-color: #22c55e;
+      border-radius: 2px;
+      box-shadow: 0 0 10px rgba(34, 197, 94, 0.4);
+    }
+    .brand-title {
+      font-weight: 700;
+      font-size: 13px;
+      letter-spacing: 1.5px;
+      color: #ffffff;
+      text-transform: uppercase;
+    }
+    .brand-subtitle {
+      font-size: 10px;
+      color: #71717a;
+      letter-spacing: 0.8px;
+    }
+
+    /* Status Badges */
+    .status-group {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .badge {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      background: #17171f;
+      border: 1px solid #252532;
+      border-radius: 3px;
+      padding: 5px 10px;
+      font-size: 11px;
+      font-family: monospace;
+      color: #d4d4d8;
+    }
+    .badge-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #71717a;
+    }
+    .badge-dot.connected {
+      background: #22c55e;
+      box-shadow: 0 0 8px #22c55e;
+      animation: pulse 2s infinite;
+    }
+    .badge-dot.offline {
+      background: #ef4444;
+      box-shadow: 0 0 8px #ef4444;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.4; }
+    }
+
+    /* Header Action Buttons (Matching Robot Scanner Dashboard) */
+    .action-group {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .btn {
+      border-radius: 3px;
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.6px;
+      padding: 6px 14px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.15s ease;
+      border: 1px solid transparent;
+      outline: none;
+    }
+    .btn-green {
+      background: #14532d;
+      border-color: #22c55e;
+      color: #ffffff;
+    }
+    .btn-green:hover {
+      background: #166534;
+      box-shadow: 0 0 10px rgba(34, 197, 94, 0.4);
+    }
+    .btn-blue {
+      background: #1e3a8a;
+      border-color: #3b82f6;
+      color: #ffffff;
+    }
+    .btn-blue:hover {
+      background: #1d4ed8;
+      box-shadow: 0 0 10px rgba(59, 130, 246, 0.4);
+    }
+    .btn-orange {
+      background: #7c2d12;
+      border-color: #f97316;
+      color: #ffffff;
+    }
+    .btn-orange:hover {
+      background: #9a3412;
+      box-shadow: 0 0 10px rgba(249, 115, 22, 0.4);
+    }
+    .btn-dark {
+      background: #1e1e26;
+      border-color: #353545;
+      color: #e4e4e7;
+    }
+    .btn-dark:hover {
+      background: #282836;
+      border-color: #4a4a60;
+    }
+
+    /* Main Workspace Split */
+    main {
+      flex: 1;
+      display: grid;
+      grid-template-columns: 480px 1fr;
+      height: calc(100vh - 84px);
+      background-color: #0b0b0e;
+    }
+
+    /* Left Video Feeds Column */
+    .left-panel {
+      background-color: #101014;
+      border-right: 1px solid #1c1c24;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      padding: 12px;
+      overflow-y: auto;
+    }
+    .feed-card {
+      background-color: #14141a;
+      border: 1px solid #22222c;
+      border-radius: 4px;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+    .feed-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 6px 12px;
+      background: #181820;
+      border-bottom: 1px solid #22222c;
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.8px;
+      color: #a1a1aa;
+    }
+    .feed-label {
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 1px;
+      color: #a1a1aa;
+      text-transform: uppercase;
+    }
+    .feed-media {
+      position: relative;
+      width: 100%;
+      height: 240px;
+      background: #000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .feed-media img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+    .feed-crosshair {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 24px;
+      height: 24px;
+      transform: translate(-50%, -50%);
+      pointer-events: none;
+    }
+    .feed-crosshair::before, .feed-crosshair::after {
+      content: '';
+      position: absolute;
+      background: rgba(0, 255, 255, 0.7);
+    }
+    .feed-crosshair::before {
+      top: 0; left: 11px; width: 2px; height: 24px;
+    }
+    .feed-crosshair::after {
+      top: 11px; left: 0; width: 24px; height: 2px;
+    }
+    .feed-distance-overlay {
+      position: absolute;
+      bottom: 8px;
+      left: 8px;
+      background: rgba(10, 10, 14, 0.85);
+      border: 1px solid #2c2c3c;
+      padding: 3px 8px;
+      border-radius: 3px;
+      font-size: 11px;
+      font-family: monospace;
+      color: #22c55e;
+    }
+
+    /* Robot Telemetry Card */
+    .telemetry-card {
+      background-color: #14141a;
+      border: 1px solid #22222c;
+      border-radius: 4px;
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      font-size: 11px;
+      font-family: monospace;
+    }
+    .telemetry-row {
+      display: flex;
+      justify-content: space-between;
+      border-bottom: 1px solid #1a1a24;
+      padding-bottom: 4px;
+    }
+    .telemetry-label {
+      color: #71717a;
+    }
+    .telemetry-val {
+      color: #e4e4e7;
+      font-weight: 600;
+    }
+    .telemetry-val.lime {
+      color: #22c55e;
+    }
+    .telemetry-val.cyan {
+      color: #38bdf8;
+    }
+    .telemetry-raw {
+      background: #0d0d12;
+      border: 1px solid #1f1f2a;
+      padding: 6px 8px;
+      border-radius: 3px;
+      color: #a1a1aa;
+      font-size: 10px;
+      overflow-x: auto;
+      white-space: nowrap;
+    }
+
+    /* Right 3D Viewport */
+    .viewport-panel {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      background: #08080b;
+      overflow: hidden;
+    }
+    #three-container {
+      width: 100%;
+      height: 100%;
+    }
+
+    /* Studio Layer Toggles Overlay */
+    .zed-overlay-box {
+      position: absolute;
+      top: 14px;
+      right: 14px;
+      background: rgba(16, 16, 22, 0.90);
+      border: 1px solid #282838;
+      border-radius: 4px;
+      padding: 10px 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      z-index: 10;
+      backdrop-filter: blur(8px);
+      box-shadow: 0 4px 18px rgba(0,0,0,0.5);
+    }
+    .zed-overlay-title {
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 1.5px;
+      color: #71717a;
+      border-bottom: 1px solid #282838;
+      padding-bottom: 4px;
+      text-transform: uppercase;
+    }
+    .zed-checkbox-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 11px;
+      color: #d4d4d8;
+      cursor: pointer;
+    }
+    .zed-checkbox-item input {
+      accent-color: #22c55e;
+      cursor: pointer;
+    }
+    .zed-slider-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      font-size: 11px;
+      color: #a1a1aa;
+      padding-top: 4px;
+      border-top: 1px solid #222230;
+    }
+
+    .origin-badge {
+      position: absolute;
+      top: 14px;
+      left: 14px;
+      background: rgba(16, 16, 22, 0.85);
+      border: 1px solid #282838;
+      padding: 6px 12px;
+      border-radius: 3px;
+      font-size: 11px;
+      font-family: monospace;
+      color: #22c55e;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      pointer-events: none;
+    }
+
+    .viewport-hint {
+      position: absolute;
+      bottom: 12px;
+      left: 14px;
+      background: rgba(10, 10, 14, 0.75);
+      border: 1px solid #1e1e26;
+      padding: 5px 12px;
+      border-radius: 3px;
+      font-size: 11px;
+      font-family: monospace;
+      color: #a1a1aa;
+      pointer-events: none;
+    }
+
+    /* Bottom Status Bar */
+    footer {
+      background-color: #0e0e12;
+      border-top: 1px solid #1a1a22;
+      height: 32px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 16px;
+      font-size: 10px;
+      font-family: monospace;
+      color: #71717a;
+      z-index: 20;
+    }
+    .fps-meter {
+      display: flex;
+      gap: 16px;
+    }
+    .fps-val {
+      color: #22c55e;
+      font-weight: bold;
+    }
+    /* Configuration Modal */
+    .modal-backdrop {
+      display: none;
+      position: fixed;
+      top: 0; left: 0; width: 100vw; height: 100vh;
+      background: rgba(0, 0, 0, 0.75);
+      backdrop-filter: blur(4px);
+      z-index: 100;
+      align-items: center;
+      justify-content: center;
+    }
+    .modal-backdrop.open {
+      display: flex;
+    }
+    .modal-window {
+      background: #14141c;
+      border: 1px solid #2d2d3d;
+      border-radius: 6px;
+      width: 540px;
+      max-width: 95vw;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.8);
+      overflow: hidden;
+      animation: modalIn 0.2s ease;
+    }
+    @keyframes modalIn {
+      from { opacity: 0; transform: scale(0.96); }
+      to { opacity: 1; transform: scale(1.0); }
+    }
+    .modal-header {
+      background: #191924;
+      border-bottom: 1px solid #28283a;
+      padding: 14px 18px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .modal-title {
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 1.2px;
+      color: #ffffff;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .modal-close-btn {
+      background: transparent;
+      border: none;
+      color: #71717a;
+      font-size: 18px;
+      cursor: pointer;
+      line-height: 1;
+    }
+    .modal-close-btn:hover { color: #ffffff; }
+    .modal-body {
+      padding: 16px 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      max-height: 70vh;
+      overflow-y: auto;
+    }
+    .config-section-title {
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 1.2px;
+      color: #38bdf8;
+      text-transform: uppercase;
+      margin-top: 4px;
+    }
+    .config-field {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+      background: #0f0f15;
+      border: 1px solid #20202d;
+      border-radius: 4px;
+      padding: 10px 12px;
+    }
+    .config-field-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 11px;
+      font-family: monospace;
+    }
+    .config-field-label {
+      color: #e4e4e7;
+      font-weight: 600;
+    }
+    .config-field-val {
+      color: #22c55e;
+      font-weight: bold;
+    }
+    .config-field-desc {
+      font-size: 10px;
+      color: #71717a;
+      line-height: 1.3;
+    }
+    .config-slider-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-top: 4px;
+    }
+    .config-slider {
+      flex: 1;
+      accent-color: #22c55e;
+      cursor: pointer;
+    }
+    .config-num-input {
+      width: 75px;
+      background: #181822;
+      border: 1px solid #303042;
+      color: #22c55e;
+      border-radius: 3px;
+      padding: 4px 6px;
+      font-family: monospace;
+      font-size: 11px;
+      text-align: right;
+    }
+    .modal-footer {
+      background: #191924;
+      border-top: 1px solid #28283a;
+      padding: 12px 18px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Top Studio Header -->
+  <header>
+    <div class="brand">
+      <div class="brand-logo"></div>
+      <div>
+        <div class="brand-title">ABB ROBOT 3D SCANNING STUDIO</div>
+        <div class="brand-subtitle">ZED M CAMERA // OPEN3D MULTI-WAY ICP PIPELINE</div>
+      </div>
+    </div>
+
+    <!-- Status Badges -->
+    <div class="status-group">
+      <div class="badge">
+        <div id="cam-dot" class="badge-dot"></div>
+        <span id="cam-status-text">CAMERA: STANDBY</span>
+      </div>
+      <div class="badge">
+        <div id="robot-dot" class="badge-dot"></div>
+        <span id="robot-status-text">ROBOT: WAITING</span>
+      </div>
+      <div class="badge">
+        <span>STAGES:</span>
+        <span id="stage-count-text" style="color: #22c55e; font-weight: bold;">0</span>
+      </div>
+      <div class="badge">
+        <span>WORKPIECE POINTS:</span>
+        <span id="point-count-text" style="color: #38bdf8; font-weight: bold;">0</span>
+      </div>
+    </div>
+
+    <!-- Header Action Buttons (Matching Robot Scanner Dashboard) -->
+    <div class="action-group">
+      <button class="btn btn-green" onclick="saveWorkpiece()" title="Save filtered workpiece in meters and 1:1 mm for Rhino">
+        <span>💾</span> SAVE WORKPIECE
+      </button>
+      <button class="btn btn-blue" onclick="cleanDenoise()" title="Run Outlier Removal and Voxel Averaging on points in memory">
+        <span>🧹</span> CLEAN & DE-NOISE
+      </button>
+      <button class="btn btn-orange" onclick="runOpen3DICP()" title="Run Open3D Multi-Way ICP & Poisson Meshing on session stages">
+        <span>⚡</span> RUN OPEN3D ICP
+      </button>
+      <button class="btn btn-dark" onclick="openConfigModal()" title="Configure Scanning Range & Reconstruction Parameters">
+        <span>⚙️</span> SCAN SETTINGS
+      </button>
+      <button class="btn btn-dark" onclick="clearScan()" title="Clear scan buffer and reset session stages">
+        <span>🔄</span> CLEAR SCAN
+      </button>
+      <button class="btn btn-dark" onclick="reset3DView()" title="Recenter 3D Viewport on Base Origin (0,0,0)">
+        <span>🎯</span> RECENTER (0,0,0)
+      </button>
+    </div>
+  </header>
+
+  <!-- Main Workspace Split -->
+  <main>
+    <!-- Left Column: Video Feeds & Telemetry -->
+    <div class="left-panel">
+      <!-- RGB Camera View -->
+      <div class="feed-card">
+        <div class="feed-header">
+          <span class="feed-label">VIEW: LEFT (RGB)</span>
+          <span style="font-size: 9px; color: #71717a; font-family: monospace;">HD720 // 30 HZ</span>
+        </div>
+        <div class="feed-media">
+          <img src="/video/rgb" alt="RGB Stream" onerror="this.style.opacity=0.3">
+          <div class="feed-crosshair"></div>
+        </div>
+      </div>
+
+      <!-- Colorized Depth View -->
+      <div class="feed-card">
+        <div class="feed-header">
+          <span class="feed-label">MEASURE: DEPTH (COLORIZED)</span>
+          <span style="font-size: 9px; color: #38bdf8; font-family: monospace;">NEURAL ENGINE</span>
+        </div>
+        <div class="feed-media">
+          <img src="/video/depth" alt="Depth Stream" onerror="this.style.opacity=0.3">
+          <div class="feed-crosshair"></div>
+          <div id="center-dist-tag" class="feed-distance-overlay">DISTANCE: -- m</div>
+        </div>
+      </div>
+
+      <!-- Live Robot Telemetry Card -->
+      <div class="telemetry-card">
+        <div class="telemetry-row">
+          <span class="telemetry-label">Camera Link:</span>
+          <span id="tel-cam" class="telemetry-val">OFFLINE (STANDBY)</span>
+        </div>
+        <div class="telemetry-row">
+          <span class="telemetry-label">Robot Link:</span>
+          <span id="tel-robot" class="telemetry-val cyan">WAITING FOR ROBOT (PORT 5000)</span>
+        </div>
+        <div class="telemetry-row">
+          <span class="telemetry-label">Active Pose (m):</span>
+          <span id="tel-xyz" class="telemetry-val lime">None</span>
+        </div>
+        <div class="telemetry-row">
+          <span class="telemetry-label">Flange Pose (mm):</span>
+          <span id="tel-flange-mm" class="telemetry-val">None</span>
+        </div>
+        <div class="telemetry-row">
+          <span class="telemetry-label">Mesh Status:</span>
+          <span id="tel-mesh" class="telemetry-val cyan">scans/latest_workpiece_mesh_mm.stl</span>
+        </div>
+        <span class="telemetry-label" style="margin-top: 4px;">Last Robot Payload:</span>
+        <div id="tel-payload" class="telemetry-raw">Waiting for robot socket trigger...</div>
+      </div>
+    </div>
+
+    <!-- Right Column: 3D Viewport -->
+    <div class="viewport-panel">
+      <div id="three-container"></div>
+
+      <div class="origin-badge">
+        <span>🌐 REFERENCE FRAME: ROBOT BASE (0, 0, 0)</span>
+      </div>
+
+      <!-- Studio Layer Controls Overlay -->
+      <div class="zed-overlay-box">
+        <div class="zed-overlay-title">DISPLAY LAYERS</div>
+        <label class="zed-checkbox-item">
+          <input type="checkbox" id="chk-pts" checked onchange="toggleLayer('pts')">
+          <span>POINT CLOUD</span>
+        </label>
+        <label class="zed-checkbox-item">
+          <input type="checkbox" id="chk-mesh" checked onchange="toggleLayer('mesh')">
+          <span>SURFACE MESH (SHADED)</span>
+        </label>
+        <label class="zed-checkbox-item">
+          <input type="checkbox" id="chk-wire" onchange="toggleLayer('wire')">
+          <span>WIREFRAME MESH</span>
+        </label>
+        <label class="zed-checkbox-item">
+          <input type="checkbox" id="chk-tcp" checked onchange="toggleLayer('tcp')">
+          <span>ROBOT TCP & AXES</span>
+        </label>
+        <label class="zed-checkbox-item">
+          <input type="checkbox" id="chk-grid" checked onchange="toggleLayer('grid')">
+          <span>WORLD FLOOR GRID (0,0,0)</span>
+        </label>
+        <div class="zed-slider-row">
+          <span>Point Size:</span>
+          <input type="range" id="rng-pt-size" min="1" max="10" value="3" style="width: 80px; accent-color: #22c55e;" oninput="changePointSize(this.value)">
+        </div>
+        <button class="btn btn-dark" style="margin-top: 4px; padding: 4px 8px; justify-content: center;" onclick="frameWorkpiece()">
+          <span>🔍</span> FRAME WORKPIECE
+        </button>
+      </div>
+
+      <div class="viewport-hint">
+        Orbit: Left-Click + Drag  |  Pan: Right-Click + Drag  |  Zoom: Scroll  |  'R': Recenter (0,0,0)
+      </div>
+    </div>
+  </main>
+
+  <!-- Bottom Playback & Status Bar -->
+  <footer>
+    <div class="fps-meter">
+      <span>CAMERA: <span class="fps-val" id="fps-cam">0.0 HZ</span></span>
+      <span>RENDER: <span class="fps-val" id="fps-web">60 FPS</span></span>
+    </div>
+    <div>ABB ROBOT SCANNING STUDIO // OPEN3D MULTI-WAY ICP // RHINO 1:1 MM EXPORT</div>
+  </footer>
+
+  <!-- Three.js 3D Viewport Script -->
+  <script>
+    let scene, camera, renderer, controls;
+    let pointCloudMesh = null;
+    let surfaceMesh = null;
+    let wireMesh = null;
+    let gridGroup, tcpGroup, trajGroup, originAxes;
+    let lastPointCount = -1;
+    let currentMeshName = "";
+    let workpieceCentroid = new THREE.Vector3(0, 0, 0);
+
+    function init3D() {
+      const container = document.getElementById('three-container');
+      const width = container.clientWidth;
+      const height = container.clientHeight;
+
+      // 1. Scene
+      scene = new THREE.Scene();
+      scene.background = new THREE.Color(0x0a0a0e);
+
+      // 2. Camera: Z is UP (matching Robot Base & Rhino coordinates!)
+      camera = new THREE.PerspectiveCamera(45, width / height, 0.05, 100);
+      camera.up.set(0, 0, 1); // Z is VERTICAL (UP)
+      camera.position.set(2.8, 2.8, 2.0); // Isometric perspective looking at 0,0,0
+
+      // 3. Renderer with Logarithmic Depth Buffer (eliminates z-fighting & depth artifacts!)
+      renderer = new THREE.WebGLRenderer({
+        antialias: true,
+        powerPreference: "high-performance",
+        logarithmicDepthBuffer: true
+      });
+      renderer.setSize(width, height);
+      renderer.setPixelRatio(window.devicePixelRatio);
+      container.appendChild(renderer.domElement);
+
+      // 4. Lighting for 3D Mesh
+      const ambientLight = new THREE.AmbientLight(0xffffff, 0.65);
+      scene.add(ambientLight);
+      const dirLight1 = new THREE.DirectionalLight(0xffffff, 0.85);
+      dirLight1.position.set(5, 5, 10);
+      scene.add(dirLight1);
+      const dirLight2 = new THREE.DirectionalLight(0x38bdf8, 0.4);
+      dirLight2.position.set(-5, -5, 2);
+      scene.add(dirLight2);
+
+      // 5. Controls: Orbit centered around (0, 0, 0)
+      controls = new THREE.OrbitControls(camera, renderer.domElement);
+      controls.target.set(0, 0, 0); // Reference is 0,0,0!
+      controls.enableDamping = true;
+      controls.dampingFactor = 0.06;
+
+      // 6. Groups
+      gridGroup = new THREE.Group();
+      buildFloorGrid();
+      scene.add(gridGroup);
+
+      // Base Origin (0,0,0) Triad: X=Red, Y=Green, Z=Blue
+      originAxes = new THREE.AxesHelper(0.35);
+      originAxes.renderOrder = 999;
+      originAxes.material.depthTest = true;
+      originAxes.material.depthWrite = false;
+      scene.add(originAxes);
+
+      tcpGroup = new THREE.Group();
+      buildTCPGizmo();
+      scene.add(tcpGroup);
+
+      trajGroup = new THREE.Group();
+      scene.add(trajGroup);
+
+      window.addEventListener('resize', onWindowResize);
+      window.addEventListener('keydown', (e) => {
+        if (e.key === 'r' || e.key === 'R') reset3DView();
+      });
+
+      animate();
+      fetchMesh();
+      fetchPointCloud();
+    }
+
+    // Floor grid at Z=0 plane centered around (0, 0, 0)
+    function buildFloorGrid() {
+      const lineMat = new THREE.LineBasicMaterial({
+        color: 0x22c55e,
+        opacity: 0.25,
+        transparent: true,
+        depthTest: true,
+        depthWrite: false // Crucial: never punch holes into point cloud
+      });
+
+      const gridExtent = 2.5;
+      const step = 0.25;
+      const verts = [];
+
+      for (let x = -gridExtent; x <= gridExtent; x += step) {
+        for (let y = -gridExtent; y <= gridExtent; y += step) {
+          const s = 0.025;
+          verts.push(x - s, y, 0,  x + s, y, 0);
+          verts.push(x, y - s, 0,  x, y + s, 0);
+        }
+      }
+
+      const gridGeo = new THREE.BufferGeometry();
+      gridGeo.setAttribute('position', new THREE.Float32BufferAttribute(verts, 3));
+      const grid = new THREE.LineSegments(gridGeo, lineMat);
+      gridGroup.add(grid);
+    }
+
+    // Robot Tool TCP Gizmo with XYZ Triad
+    function buildTCPGizmo() {
+      const lineMat = new THREE.LineBasicMaterial({
+        color: 0x38bdf8,
+        depthTest: true,
+        depthWrite: false // Avoid depth-fighting
+      });
+
+      // Target ring in XY
+      const ringPts = [];
+      const r = 0.08;
+      for (let i = 0; i <= 32; i++) {
+        const theta = (i / 32) * Math.PI * 2;
+        ringPts.push(new THREE.Vector3(Math.cos(theta) * r, Math.sin(theta) * r, 0));
+      }
+      const ringGeo = new THREE.BufferGeometry().setFromPoints(ringPts);
+      const ringLine = new THREE.Line(ringGeo, lineMat);
+      tcpGroup.add(ringLine);
+
+      // Tool axes: X=Red, Y=Green, Z=Blue
+      const axes = new THREE.AxesHelper(0.18);
+      axes.material.depthTest = true;
+      axes.material.depthWrite = false;
+      tcpGroup.add(axes);
+    }
+
+    function onWindowResize() {
+      const container = document.getElementById('three-container');
+      camera.aspect = container.clientWidth / container.clientHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(container.clientWidth, container.clientHeight);
+    }
+
+    function animate() {
+      requestAnimationFrame(animate);
+      controls.update();
+      renderer.render(scene, camera);
+    }
+
+    function toggleLayer(layer) {
+      if (layer === 'pts' && pointCloudMesh) {
+        pointCloudMesh.visible = document.getElementById('chk-pts').checked;
+      }
+      if (layer === 'mesh' && surfaceMesh) {
+        surfaceMesh.visible = document.getElementById('chk-mesh').checked;
+      }
+      if (layer === 'wire' && wireMesh) {
+        wireMesh.visible = document.getElementById('chk-wire').checked;
+      }
+      if (layer === 'tcp') {
+        tcpGroup.visible = document.getElementById('chk-tcp').checked;
+      }
+      if (layer === 'grid') {
+        gridGroup.visible = document.getElementById('chk-grid').checked;
+        originAxes.visible = document.getElementById('chk-grid').checked;
+      }
+    }
+
+    function changePointSize(val) {
+      if (pointCloudMesh) {
+        pointCloudMesh.material.size = parseFloat(val) * 0.0025;
+      }
+    }
+
+    function reset3DView() {
+      camera.position.set(2.8, 2.8, 2.0);
+      controls.target.set(0, 0, 0); // Always returns to Robot Base (0,0,0)
+    }
+
+    function frameWorkpiece() {
+      if (workpieceCentroid) {
+        controls.target.copy(workpieceCentroid);
+        camera.position.set(
+          workpieceCentroid.x + 1.2,
+          workpieceCentroid.y + 1.2,
+          workpieceCentroid.z + 0.8
+        );
+      }
+    }
+
+    // --- STL Binary Mesh Loader ---
+    async function fetchMesh() {
+      try {
+        const res = await fetch('/api/mesh');
+        if (!res.ok) return;
+        const buffer = await res.arrayBuffer();
+        if (buffer.byteLength < 84) return;
+
+        const reader = new DataView(buffer);
+        const numTriangles = reader.getUint32(80, true);
+        if (numTriangles <= 0 || buffer.byteLength < 84 + numTriangles * 50) return;
+
+        const positions = new Float32Array(numTriangles * 9);
+        const normals = new Float32Array(numTriangles * 9);
+
+        // Detect if STL is in mm (bounds > 50) and scale to meters
+        let sampleZ = reader.getFloat32(84 + 12 + 8, true);
+        const scaleFactor = Math.abs(sampleZ) > 30.0 ? 0.001 : 1.0;
+
+        for (let i = 0; i < numTriangles; i++) {
+          const offset = 84 + i * 50;
+          const nx = reader.getFloat32(offset + 0, true);
+          const ny = reader.getFloat32(offset + 4, true);
+          const nz = reader.getFloat32(offset + 8, true);
+
+          for (let v = 0; v < 3; v++) {
+            const vOffset = offset + 12 + v * 12;
+            const pIdx = i * 9 + v * 3;
+            positions[pIdx + 0] = reader.getFloat32(vOffset + 0, true) * scaleFactor;
+            positions[pIdx + 1] = reader.getFloat32(vOffset + 4, true) * scaleFactor;
+            positions[pIdx + 2] = reader.getFloat32(vOffset + 8, true) * scaleFactor;
+
+            normals[pIdx + 0] = nx;
+            normals[pIdx + 1] = ny;
+            normals[pIdx + 2] = nz;
+          }
+        }
+
+        const geometry = new THREE.BufferGeometry();
+        geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+        geometry.setAttribute('normal', new THREE.BufferAttribute(normals, 3));
+
+        if (surfaceMesh) scene.remove(surfaceMesh);
+        if (wireMesh) scene.remove(wireMesh);
+
+        // Polygon offset pushes surface slightly back, preventing z-fighting with point cloud
+        const meshMat = new THREE.MeshStandardMaterial({
+          color: 0x94a3b8,
+          roughness: 0.35,
+          metalness: 0.2,
+          side: THREE.DoubleSide,
+          polygonOffset: true,
+          polygonOffsetFactor: 1.0,
+          polygonOffsetUnits: 1.0,
+          depthTest: true,
+          depthWrite: true
+        });
+        surfaceMesh = new THREE.Mesh(geometry, meshMat);
+        surfaceMesh.visible = document.getElementById('chk-mesh').checked;
+        scene.add(surfaceMesh);
+
+        // Wireframe overlay with depthWrite: false to eliminate rendering artifacts
+        const wireMat = new THREE.MeshBasicMaterial({
+          color: 0x22c55e,
+          wireframe: true,
+          transparent: true,
+          opacity: 0.35,
+          depthTest: true,
+          depthWrite: false
+        });
+        wireMesh = new THREE.Mesh(geometry, wireMat);
+        wireMesh.visible = document.getElementById('chk-wire').checked;
+        scene.add(wireMesh);
+
+      } catch (err) {
+        console.warn("Mesh load notice:", err);
+      }
+    }
+
+    // --- Point Cloud Stream Loader ---
+    async function fetchPointCloud() {
+      try {
+        const res = await fetch('/api/points');
+        const buffer = await res.arrayBuffer();
+        if (buffer.byteLength === 0) return;
+
+        const pointStride = 15;
+        const count = Math.floor(buffer.byteLength / pointStride);
+
+        const positions = new Float32Array(count * 3);
+        const colors = new Float32Array(count * 3);
+        const dataView = new DataView(buffer);
+
+        let sumX = 0, sumY = 0, sumZ = 0;
+
+        for (let i = 0; i < count; i++) {
+          const offset = i * pointStride;
+          const x = dataView.getFloat32(offset + 0, true);
+          const y = dataView.getFloat32(offset + 4, true);
+          const z = dataView.getFloat32(offset + 8, true);
+
+          positions[i * 3 + 0] = x;
+          positions[i * 3 + 1] = y;
+          positions[i * 3 + 2] = z;
+
+          sumX += x; sumY += y; sumZ += z;
+
+          colors[i * 3 + 0] = dataView.getUint8(offset + 12) / 255.0;
+          colors[i * 3 + 1] = dataView.getUint8(offset + 13) / 255.0;
+          colors[i * 3 + 2] = dataView.getUint8(offset + 14) / 255.0;
+        }
+
+        if (count > 0) {
+          workpieceCentroid.set(sumX / count, sumY / count, sumZ / count);
+        }
+
+        const geometry = new THREE.BufferGeometry();
+        geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+        geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+
+        if (pointCloudMesh) {
+          scene.remove(pointCloudMesh);
+          pointCloudMesh.geometry.dispose();
+        }
+
+        const ptSize = parseFloat(document.getElementById('rng-pt-size').value) * 0.0025;
+        const material = new THREE.PointsMaterial({
+          size: ptSize,
+          vertexColors: true,
+          sizeAttenuation: true,
+          depthTest: true,
+          depthWrite: true,
+          transparent: false
+        });
+
+        pointCloudMesh = new THREE.Points(geometry, material);
+        pointCloudMesh.visible = document.getElementById('chk-pts').checked;
+        scene.add(pointCloudMesh);
+
+      } catch (err) {
+        console.error("Point cloud fetch error:", err);
+      }
+    }
+
+    // --- Telemetry Polling Loop ---
+    async function pollTelemetry() {
+      try {
+        const res = await fetch('/api/status');
+        const data = await res.json();
+
+        // Camera Status
+        const cDot = document.getElementById('cam-dot');
+        const cText = document.getElementById('cam-status-text');
+        const tCam = document.getElementById('tel-cam');
+        if (data.camera_online) {
+          cDot.className = 'badge-dot connected';
+          cText.innerText = `CAMERA: ONLINE (${data.fps.toFixed(0)} FPS)`;
+          tCam.innerText = `ONLINE (${data.fps.toFixed(0)} FPS)`;
+          tCam.className = 'telemetry-val lime';
+        } else {
+          cDot.className = 'badge-dot offline';
+          cText.innerText = `CAMERA: STANDBY`;
+          tCam.innerText = `OFFLINE (STANDBY)`;
+          tCam.className = 'telemetry-val';
+        }
+
+        // Robot Status
+        const rDot = document.getElementById('robot-dot');
+        const rText = document.getElementById('robot-status-text');
+        const tRobot = document.getElementById('tel-robot');
+        if (data.robot_connected) {
+          rDot.className = 'badge-dot connected';
+          rText.innerText = `ROBOT: ONLINE (${data.robot_ip})`;
+          tRobot.innerText = `CONNECTED (${data.robot_ip})`;
+          tRobot.className = 'telemetry-val lime';
+        } else {
+          rDot.className = 'badge-dot';
+          rText.innerText = `ROBOT: WAITING`;
+          tRobot.innerText = `WAITING FOR ROBOT (PORT 5000)`;
+          tRobot.className = 'telemetry-val cyan';
+        }
+
+        // Stats
+        document.getElementById('point-count-text').innerText = Number(data.total_points).toLocaleString();
+        document.getElementById('stage-count-text').innerText = data.stage_count;
+        document.getElementById('center-dist-tag').innerText = `DISTANCE: ${data.center_distance} m`;
+        document.getElementById('fps-cam').innerText = `${data.fps.toFixed(1)} HZ`;
+
+        // Active Pose
+        if (data.active_pose) {
+          const t = data.active_pose.trans;
+          const q = data.active_pose.quat;
+          document.getElementById('tel-xyz').innerText = `X:${t[0].toFixed(3)} Y:${t[1].toFixed(3)} Z:${t[2].toFixed(3)} m`;
+          
+          if (data.active_pose.trans_mm) {
+            const mm = data.active_pose.trans_mm;
+            document.getElementById('tel-flange-mm').innerText = `X:${mm[0].toFixed(1)} Y:${mm[1].toFixed(1)} Z:${mm[2].toFixed(1)} mm`;
+          }
+
+          tcpGroup.position.set(t[0], t[1], t[2]);
+          const quat = new THREE.Quaternion(q[0], q[1], q[2], q[3]);
+          tcpGroup.setRotationFromQuaternion(quat);
+        }
+
+        // Mesh Status
+        if (data.mesh_stats && data.mesh_stats.available) {
+          document.getElementById('tel-mesh').innerText = `${data.mesh_stats.name} (${data.mesh_stats.size_mb} MB)`;
+          if (data.mesh_stats.name !== currentMeshName) {
+            currentMeshName = data.mesh_stats.name;
+            fetchMesh();
+          }
+        }
+
+        if (data.last_payload) {
+          document.getElementById('tel-payload').innerText = data.last_payload;
+        }
+
+        // Trajectory
+        if (data.trajectory && data.trajectory.length > 1) {
+          updateTrajectory(data.trajectory);
+        }
+
+        // Update point cloud when new points arrive
+        if (data.total_points > 0 && data.total_points !== lastPointCount) {
+          lastPointCount = data.total_points;
+          fetchPointCloud();
+        }
+
+      } catch (err) {
+        console.warn("Telemetry poll notice:", err);
+      }
+    }
+
+    function updateTrajectory(pts) {
+      while (trajGroup.children.length > 0) {
+        trajGroup.remove(trajGroup.children[0]);
+      }
+      const points = pts.map(p => new THREE.Vector3(p[0], p[1], p[2]));
+      const geo = new THREE.BufferGeometry().setFromPoints(points);
+      const mat = new THREE.LineBasicMaterial({
+        color: 0x38bdf8,
+        linewidth: 2,
+        depthTest: true,
+        depthWrite: false
+      });
+      const line = new THREE.Line(geo, mat);
+      trajGroup.add(line);
+    }
+
+    // --- Action Callbacks ---
+    async function saveWorkpiece() {
+      try {
+        const res = await fetch('/api/action/save', { method: 'POST' });
+        const data = await res.json();
+        alert(data.message);
+      } catch (e) {
+        alert("Save error: " + e);
+      }
+    }
+
+    async function cleanDenoise() {
+      try {
+        const res = await fetch('/api/action/clean', { method: 'POST' });
+        const data = await res.json();
+        lastPointCount = -1;
+        fetchPointCloud();
+        alert(data.message);
+      } catch (e) {
+        alert("Clean error: " + e);
+      }
+    }
+
+    async function runOpen3DICP() {
+      try {
+        const res = await fetch('/api/action/open3d_icp', { method: 'POST' });
+        const data = await res.json();
+        alert(data.message);
+        setTimeout(fetchMesh, 4000);
+      } catch (e) {
+        alert("ICP error: " + e);
+      }
+    }
+
+    async function clearScan() {
+      if (confirm("Reset current scan and clear all collected workpiece stages?")) {
+        await fetch('/api/action/clear', { method: 'POST' });
+        if (pointCloudMesh) {
+          scene.remove(pointCloudMesh);
+          pointCloudMesh = null;
+        }
+        lastPointCount = 0;
+      }
+    }
+
+    // --- Scan Configuration Modal Methods ---
+    let currentConfig = {
+      min_depth_m: 0.25,
+      max_depth_m: 0.70,
+      border_crop: 0.06,
+      voxel_size_mm: 2.0,
+      outlier_std_ratio: 1.2,
+      outlier_nb_neighbors: 16,
+      subsample_step: 1,
+      icp_max_distance_mm: 15.0
+    };
+
+    async function fetchConfig() {
+      try {
+        const res = await fetch('/api/config');
+        const data = await res.json();
+        if (data.config) {
+          currentConfig = Object.assign({}, currentConfig, data.config);
+          populateConfigUI(currentConfig);
+        }
+      } catch (err) {
+        console.warn("Could not load /api/config:", err);
+      }
+    }
+
+    function populateConfigUI(cfg) {
+      document.getElementById('cfg-min-depth').value = cfg.min_depth_m || 0.25;
+      document.getElementById('num-cfg-min-depth').value = cfg.min_depth_m || 0.25;
+      document.getElementById('val-cfg-min-depth').textContent = (cfg.min_depth_m || 0.25).toFixed(2) + " m";
+
+      document.getElementById('cfg-max-depth').value = cfg.max_depth_m || 0.70;
+      document.getElementById('num-cfg-max-depth').value = cfg.max_depth_m || 0.70;
+      document.getElementById('val-cfg-max-depth').textContent = (cfg.max_depth_m || 0.70).toFixed(2) + " m";
+
+      const cropPct = Math.round((cfg.border_crop || 0.06) * 100);
+      document.getElementById('cfg-border-crop').value = cfg.border_crop || 0.06;
+      document.getElementById('num-cfg-border-crop').value = cropPct;
+      document.getElementById('val-cfg-border-crop').textContent = cropPct + "%";
+
+      document.getElementById('cfg-voxel-size').value = cfg.voxel_size_mm || 2.0;
+      document.getElementById('num-cfg-voxel-size').value = cfg.voxel_size_mm || 2.0;
+      document.getElementById('val-cfg-voxel-size').textContent = (cfg.voxel_size_mm || 2.0).toFixed(1) + " mm";
+
+      document.getElementById('cfg-std-ratio').value = cfg.outlier_std_ratio || 1.2;
+      document.getElementById('num-cfg-std-ratio').value = cfg.outlier_std_ratio || 1.2;
+      document.getElementById('val-cfg-std-ratio').textContent = (cfg.outlier_std_ratio || 1.2).toFixed(2);
+
+      document.getElementById('cfg-icp-dist').value = cfg.icp_max_distance_mm || 15.0;
+      document.getElementById('num-cfg-icp-dist').value = cfg.icp_max_distance_mm || 15.0;
+      document.getElementById('val-cfg-icp-dist').textContent = (cfg.icp_max_distance_mm || 15.0).toFixed(1) + " mm";
+    }
+
+    function syncConfigUI() {
+      const minD = parseFloat(document.getElementById('cfg-min-depth').value);
+      const maxD = parseFloat(document.getElementById('cfg-max-depth').value);
+      const crop = parseFloat(document.getElementById('cfg-border-crop').value);
+      const vox = parseFloat(document.getElementById('cfg-voxel-size').value);
+      const stdR = parseFloat(document.getElementById('cfg-std-ratio').value);
+      const icpD = parseFloat(document.getElementById('cfg-icp-dist').value);
+
+      document.getElementById('num-cfg-min-depth').value = minD.toFixed(2);
+      document.getElementById('val-cfg-min-depth').textContent = minD.toFixed(2) + " m";
+
+      document.getElementById('num-cfg-max-depth').value = maxD.toFixed(2);
+      document.getElementById('val-cfg-max-depth').textContent = maxD.toFixed(2) + " m";
+
+      const cropPct = Math.round(crop * 100);
+      document.getElementById('num-cfg-border-crop').value = cropPct;
+      document.getElementById('val-cfg-border-crop').textContent = cropPct + "%";
+
+      document.getElementById('num-cfg-voxel-size').value = vox.toFixed(1);
+      document.getElementById('val-cfg-voxel-size').textContent = vox.toFixed(1) + " mm";
+
+      document.getElementById('num-cfg-std-ratio').value = stdR.toFixed(2);
+      document.getElementById('val-cfg-std-ratio').textContent = stdR.toFixed(2);
+
+      document.getElementById('num-cfg-icp-dist').value = icpD.toFixed(1);
+      document.getElementById('val-cfg-icp-dist').textContent = icpD.toFixed(1) + " mm";
+    }
+
+    function syncConfigFromNum() {
+      const minD = parseFloat(document.getElementById('num-cfg-min-depth').value) || 0.25;
+      const maxD = parseFloat(document.getElementById('num-cfg-max-depth').value) || 0.70;
+      const cropPct = parseFloat(document.getElementById('num-cfg-border-crop').value) || 6;
+      const vox = parseFloat(document.getElementById('num-cfg-voxel-size').value) || 2.0;
+      const stdR = parseFloat(document.getElementById('num-cfg-std-ratio').value) || 1.2;
+      const icpD = parseFloat(document.getElementById('num-cfg-icp-dist').value) || 15.0;
+
+      document.getElementById('cfg-min-depth').value = minD;
+      document.getElementById('val-cfg-min-depth').textContent = minD.toFixed(2) + " m";
+
+      document.getElementById('cfg-max-depth').value = maxD;
+      document.getElementById('val-cfg-max-depth').textContent = maxD.toFixed(2) + " m";
+
+      document.getElementById('cfg-border-crop').value = (cropPct / 100.0).toFixed(2);
+      document.getElementById('val-cfg-border-crop').textContent = Math.round(cropPct) + "%";
+
+      document.getElementById('cfg-voxel-size').value = vox;
+      document.getElementById('val-cfg-voxel-size').textContent = vox.toFixed(1) + " mm";
+
+      document.getElementById('cfg-std-ratio').value = stdR;
+      document.getElementById('val-cfg-std-ratio').textContent = stdR.toFixed(2);
+
+      document.getElementById('cfg-icp-dist').value = icpD;
+      document.getElementById('val-cfg-icp-dist').textContent = icpD.toFixed(1) + " mm";
+    }
+
+    function openConfigModal() {
+      fetchConfig().then(() => {
+        document.getElementById('config-modal').classList.add('open');
+      });
+    }
+
+    function closeConfigModal() {
+      document.getElementById('config-modal').classList.remove('open');
+    }
+
+    async function saveConfigFromModal() {
+      const minD = parseFloat(document.getElementById('cfg-min-depth').value);
+      const maxD = parseFloat(document.getElementById('cfg-max-depth').value);
+      const crop = parseFloat(document.getElementById('cfg-border-crop').value);
+      const vox = parseFloat(document.getElementById('cfg-voxel-size').value);
+      const stdR = parseFloat(document.getElementById('cfg-std-ratio').value);
+      const icpD = parseFloat(document.getElementById('cfg-icp-dist').value);
+
+      const payload = {
+        min_depth_m: minD,
+        max_depth_m: maxD,
+        border_crop: crop,
+        voxel_size_mm: vox,
+        outlier_std_ratio: stdR,
+        outlier_nb_neighbors: 16,
+        subsample_step: 1,
+        icp_max_distance_mm: icpD
+      };
+
+      try {
+        const res = await fetch('/api/config', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        if (data.success) {
+          currentConfig = data.config;
+          closeConfigModal();
+          alert("✓ Scanning & reconstruction parameters saved and active!");
+        } else {
+          alert("Failed to save: " + data.message);
+        }
+      } catch (err) {
+        alert("Error saving config: " + err);
+      }
+    }
+
+    function resetConfigDefaults() {
+      const defaults = {
+        min_depth_m: 0.25,
+        max_depth_m: 0.70,
+        border_crop: 0.06,
+        voxel_size_mm: 2.0,
+        outlier_std_ratio: 1.2,
+        outlier_nb_neighbors: 16,
+        subsample_step: 1,
+        icp_max_distance_mm: 15.0
+      };
+      populateConfigUI(defaults);
+    }
+
+    window.onload = () => {
+      init3D();
+      fetchConfig();
+      setInterval(pollTelemetry, 350);
+    };
+  </script>
+
+  <!-- Scan Configuration Modal -->
+  <div id="config-modal" class="modal-backdrop">
+    <div class="modal-window">
+      <div class="modal-header">
+        <div class="modal-title">
+          <span>⚙️</span> SCAN & RECONSTRUCTION PARAMETERS
+        </div>
+        <button class="modal-close-btn" onclick="closeConfigModal()">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="config-section-title">CAMERA DEPTH CLIPPING (ZED MINI)</div>
+        <div class="config-field">
+          <div class="config-field-header">
+            <span class="config-field-label">Min Scan Distance (m):</span>
+            <span class="config-field-val" id="val-cfg-min-depth">0.25 m</span>
+          </div>
+          <div class="config-field-desc">Clips near-field lens artifacts closer than this threshold (ZED Mini minimum: 0.15m).</div>
+          <div class="config-slider-row">
+            <input type="range" class="config-slider" id="cfg-min-depth" min="0.15" max="0.80" step="0.01" value="0.25" oninput="syncConfigUI()">
+            <input type="number" class="config-num-input" id="num-cfg-min-depth" min="0.15" max="0.80" step="0.01" value="0.25" oninput="syncConfigFromNum()">
+          </div>
+        </div>
+
+        <div class="config-field">
+          <div class="config-field-header">
+            <span class="config-field-label">Max Scan Distance (m):</span>
+            <span class="config-field-val" id="val-cfg-max-depth">0.70 m</span>
+          </div>
+          <div class="config-field-desc">Clips background table, floor, and distant walls. Recommended: 0.50m - 0.70m for tight workpiece isolation.</div>
+          <div class="config-slider-row">
+            <input type="range" class="config-slider" id="cfg-max-depth" min="0.30" max="2.00" step="0.01" value="0.70" oninput="syncConfigUI()">
+            <input type="number" class="config-num-input" id="num-cfg-max-depth" min="0.30" max="2.00" step="0.01" value="0.70" oninput="syncConfigFromNum()">
+          </div>
+        </div>
+
+        <div class="config-field">
+          <div class="config-field-header">
+            <span class="config-field-label">Border Lens Crop:</span>
+            <span class="config-field-val" id="val-cfg-border-crop">6%</span>
+          </div>
+          <div class="config-field-desc">Crops the periphery of the image to eliminate wide-angle optical edge distortion and vignette.</div>
+          <div class="config-slider-row">
+            <input type="range" class="config-slider" id="cfg-border-crop" min="0.0" max="0.15" step="0.01" value="0.06" oninput="syncConfigUI()">
+            <input type="number" class="config-num-input" id="num-cfg-border-crop" min="0" max="15" step="1" value="6" oninput="syncConfigFromNum()">
+          </div>
+        </div>
+
+        <div class="config-section-title">POINT CLOUD FILTERING & VOXEL GRID</div>
+        <div class="config-field">
+          <div class="config-field-header">
+            <span class="config-field-label">Voxel Downsample Resolution (mm):</span>
+            <span class="config-field-val" id="val-cfg-voxel-size">2.0 mm</span>
+          </div>
+          <div class="config-field-desc">Point grid spacing. 1.5 - 2.5 mm provides sharp workpiece resolution and 60 FPS viewport performance.</div>
+          <div class="config-slider-row">
+            <input type="range" class="config-slider" id="cfg-voxel-size" min="0.5" max="10.0" step="0.1" value="2.0" oninput="syncConfigUI()">
+            <input type="number" class="config-num-input" id="num-cfg-voxel-size" min="0.5" max="10.0" step="0.1" value="2.0" oninput="syncConfigFromNum()">
+          </div>
+        </div>
+
+        <div class="config-field">
+          <div class="config-field-header">
+            <span class="config-field-label">Outlier Sensitivity (Std Dev Ratio):</span>
+            <span class="config-field-val" id="val-cfg-std-ratio">1.2</span>
+          </div>
+          <div class="config-field-desc">Rejects flying noise and grazing angle flares. Lower value = more aggressive filtering. Recommended: 1.0 - 1.4.</div>
+          <div class="config-slider-row">
+            <input type="range" class="config-slider" id="cfg-std-ratio" min="0.6" max="2.5" step="0.05" value="1.2" oninput="syncConfigUI()">
+            <input type="number" class="config-num-input" id="num-cfg-std-ratio" min="0.6" max="2.5" step="0.05" value="1.2" oninput="syncConfigFromNum()">
+          </div>
+        </div>
+
+        <div class="config-section-title">OPEN3D MULTI-WAY ICP REGISTRATION</div>
+        <div class="config-field">
+          <div class="config-field-header">
+            <span class="config-field-label">ICP Max Search Radius (mm):</span>
+            <span class="config-field-val" id="val-cfg-icp-dist">15.0 mm</span>
+          </div>
+          <div class="config-field-desc">Maximum search distance for Point-to-Plane ICP fine consensus between overlapping robot scan poses.</div>
+          <div class="config-slider-row">
+            <input type="range" class="config-slider" id="cfg-icp-dist" min="2.0" max="40.0" step="0.5" value="15.0" oninput="syncConfigUI()">
+            <input type="number" class="config-num-input" id="num-cfg-icp-dist" min="2.0" max="40.0" step="0.5" value="15.0" oninput="syncConfigFromNum()">
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-dark" onclick="resetConfigDefaults()">
+          <span>↺</span> RESTORE DEFAULTS
+        </button>
+        <div style="display: flex; gap: 8px;">
+          <button class="btn btn-dark" onclick="closeConfigModal()">CANCEL</button>
+          <button class="btn btn-green" onclick="saveConfigFromModal()">
+            <span>💾</span> SAVE & APPLY
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

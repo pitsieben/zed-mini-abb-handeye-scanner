@@ -1,0 +1,11 @@
+{
+  "min_depth_m": 0.25,
+  "max_depth_m": 0.7,
+  "border_crop": 0.06,
+  "voxel_size_mm": 2.0,
+  "outlier_std_ratio": 1.2,
+  "outlier_nb_neighbors": 16,
+  "subsample_step": 1,
+  "icp_max_distance_mm": 15.0,
+  "depth_mode": "NEURAL"
+}
