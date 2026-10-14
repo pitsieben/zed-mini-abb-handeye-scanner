@@ -1,5 +1,5 @@
 {
-  "min_depth_m": 0.25,
+  "min_depth_m": 0.2,
   "max_depth_m": 0.7,
   "border_crop": 0.06,
   "voxel_size_mm": 2.0,

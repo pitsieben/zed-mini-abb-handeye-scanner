@@ -1,25 +1,42 @@
 @echo off
+setlocal
+cd /d "%~dp0"
+
 set PYTHON_EXE=C:\Users\pitsi\AppData\Local\Programs\Python\Python311\python.exe
-
-if not exist "%PYTHON_EXE%" (
-    echo [ERROR] Python 3.11 not found at %PYTHON_EXE%
-    pause
-    exit /b 1
-)
+if not exist "%PYTHON_EXE%" set PYTHON_EXE=python
 
 echo =======================================================
-echo    RUNNING OPEN3D MULTI-WAY ICP AND SURFACE FUSION
+echo    OPEN3D SCAN RECONSTRUCTION PIPELINE
 echo =======================================================
+echo.
+echo  [1] ICP + Screened Poisson  (works on all sessions)
+echo  [2] TSDF Volumetric Fusion  (AI voting, needs RGB+depth)
+echo  [3] Both pipelines
+echo.
+set /p CHOICE="Select mode (1/2/3) [default=1]: "
+if "%CHOICE%"=="" set CHOICE=1
 
-"%PYTHON_EXE%" tools\open3d_pipeline.py --session scans\session_stages %*
-
-if %ERRORLEVEL% EQU 0 (
-    echo.
-    echo [+] Point cloud and mesh exported to 1:1 Millimeters for Rhino!
-    echo     - scans\latest_workpiece_mm.ply
-    echo     - scans\latest_workpiece_mesh_mm.obj
-    echo.
+if "%CHOICE%"=="1" (
+    set MODE=icp
+    echo [ICP+Poisson mode selected]
+) else if "%CHOICE%"=="2" (
+    set MODE=tsdf
+    echo [TSDF Volumetric Fusion mode selected]
+) else if "%CHOICE%"=="3" (
+    set MODE=both
+    echo [Both pipelines selected]
 ) else (
-    echo.
-    echo [!] Pipeline failed. Check if scans\session_stages exists.
+    set MODE=icp
+    echo [Invalid input - defaulting to ICP+Poisson]
 )
+
+echo.
+echo Starting Open3D pipeline in %MODE% mode...
+echo.
+"%PYTHON_EXE%" tools\open3d_pipeline.py --session scans\session_stages --mode %MODE%
+
+echo.
+echo =======================================================
+echo  Done! Check scans\ for output files.
+echo =======================================================
+pause

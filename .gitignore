@@ -35,6 +35,7 @@ env.bak/
 venv.bak/
 
 # Installer binaries and wheel cache
+*.whl
 installers/*.whl
 installers/*.log
 
@@ -43,6 +44,8 @@ scans/*.ply
 scans/*.obj
 scans/*.stl
 scans/session_stages/*.ply
+scans/session_stages/*.png
+scans/session_stages/*.npy
 !scans/.gitkeep
 !scans/session_stages/.gitkeep
 !scans/session_stages/manifest.json
@@ -59,7 +62,9 @@ scans/session_stages/*.ply
 *.swo
 *.rhl
 *Autosave.3dm
+*Autosave.3dmbak
 *.3dm.bak
+*.3dmbak
 
 # OS files
 .DS_Store

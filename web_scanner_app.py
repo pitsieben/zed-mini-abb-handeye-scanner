@@ -170,6 +170,41 @@ output_dir = "scans"
 session_dir = os.path.join(output_dir, "session_stages")
 os.makedirs(session_dir, exist_ok=True)
 
+# Per-stage RGB + depth save helpers
+def save_stage_rgb(filepath, zed_image_mat):
+    """Save full-res RGB frame as PNG (used by TSDF and 3DGS pipelines)."""
+    try:
+        bgra = zed_image_mat.get_data()
+        bgr = cv2.cvtColor(bgra, cv2.COLOR_BGRA2BGR)
+        cv2.imwrite(filepath, bgr)
+    except Exception as e:
+        print(f"[RGB SAVE WARNING] {e}")
+
+def save_stage_depth(filepath, zed_depth_mat):
+    """Save raw metric depth map as float32 NPY (used by TSDF pipeline)."""
+    try:
+        depth_arr = zed_depth_mat.get_data().copy().astype(np.float32)
+        np.save(filepath, depth_arr)
+    except Exception as e:
+        print(f"[DEPTH SAVE WARNING] {e}")
+
+def get_camera_intrinsics(zed_cam_obj):
+    """Read ZED pinhole intrinsics for manifest and TSDF/3DGS pipelines."""
+    try:
+        info = zed_cam_obj.get_camera_information()
+        calib = info.camera_configuration.calibration_parameters.left_cam
+        res = info.camera_configuration.resolution
+        return {
+            "fx": round(float(calib.fx), 4),
+            "fy": round(float(calib.fy), 4),
+            "cx": round(float(calib.cx), 4),
+            "cy": round(float(calib.cy), 4),
+            "width": int(res.width),
+            "height": int(res.height)
+        }
+    except Exception:
+        return {"fx": 700.0, "fy": 700.0, "cx": 640.0, "cy": 360.0, "width": 1280, "height": 720}
+
 manifest_path = os.path.join(session_dir, "manifest.json")
 if os.path.exists(manifest_path):
     try:
@@ -236,6 +271,7 @@ def make_placeholder_frame(title, subtitle="CAMERA OFFLINE // RESILIENT STANDBY"
 latest_rgb_frame = make_placeholder_frame("VIEW: LEFT (CAMERA OFFLINE)", color=(198, 241, 53))
 latest_depth_frame = make_placeholder_frame("MEASURE: DEPTH (STANDBY)", color=(56, 189, 248))
 frame_lock = threading.Lock()
+cam_lock = threading.Lock()
 
 def get_latest_mesh_path():
     stl_mm = os.path.join("scans", "latest_workpiece_mesh_mm.stl")
@@ -246,16 +282,56 @@ def get_latest_mesh_path():
         return obj_mm
     return None
 
-def run_open3d_pipeline_async():
+pipeline_process = None
+pipeline_logs = []
+pipeline_lock = threading.Lock()
+
+def _read_process_output(process):
+    global pipeline_logs
+    # Read line by line with iter
+    for line in iter(process.stdout.readline, ''):
+        if line:
+            with pipeline_lock:
+                # Keep logs manageable, max 1000 lines
+                if len(pipeline_logs) > 1000:
+                    pipeline_logs.pop(0)
+                pipeline_logs.append(line)
+    process.stdout.close()
+    process.wait()
+    with pipeline_lock:
+        pipeline_logs.append(f"\n[PROCESS EXITED] Code {process.returncode}\n")
+
+def run_open3d_pipeline_async(mode="icp"):
+    global pipeline_process, pipeline_logs
     py311_exe = r"C:\Users\pitsi\AppData\Local\Programs\Python\Python311\python.exe"
     script_path = os.path.join("tools", "open3d_pipeline.py")
+    
+    with pipeline_lock:
+        if pipeline_process is not None and pipeline_process.poll() is None:
+            return False, "Pipeline already running."
+        pipeline_logs = [f"[SYSTEM] Starting Open3D Pipeline in '{mode}' mode...\n"]
+    
     if os.path.exists(py311_exe) and os.path.exists(script_path):
-        print("\n" + "=" * 65)
-        print("[OPEN3D AUTO-RUN] Launching Open3D Multi-Way ICP & Surface Fusion...")
-        print("=" * 65)
-        subprocess.Popen([py311_exe, script_path, "--session", session_dir])
+        env = os.environ.copy()
+        env["PYTHONUNBUFFERED"] = "1"
+        env["PYTHONIOENCODING"] = "utf-8"
+        pipeline_process = subprocess.Popen(
+            [py311_exe, script_path, "--session", session_dir, "--mode", mode],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            encoding="utf-8",
+            env=env,
+            bufsize=1, # line buffered
+            universal_newlines=True
+        )
+        t = threading.Thread(target=_read_process_output, args=(pipeline_process,), daemon=True)
+        t.start()
+        return True, "Pipeline started."
     else:
-        print("[NOTICE] Run 'run_open3d_pipeline.bat' to execute Open3D Multi-Way ICP.")
+        with pipeline_lock:
+            pipeline_logs.append("[ERROR] Python 3.11 or open3d_pipeline.py not found.\n")
+        return False, "Python environment not found."
 
 # --- Resilient Background ZED Camera Thread ---
 
@@ -273,14 +349,15 @@ def zed_camera_thread():
     init_params.depth_maximum_distance = 1.0
 
     print("[ZED] Initializing camera thread...")
-    try:
-        if zed_cam.open(init_params) == sl.ERROR_CODE.SUCCESS:
-            camera_online = True
-            print("[ZED ONLINE] ZED Camera opened successfully.")
-        else:
-            print("[ZED STANDBY] Camera not detected at start. Running in resilient standby mode...")
-    except Exception as e:
-        print(f"[ZED EXCEPTION] {e}")
+    with cam_lock:
+        try:
+            if zed_cam.open(init_params) == sl.ERROR_CODE.SUCCESS:
+                camera_online = True
+                print("[ZED ONLINE] ZED Camera opened successfully.")
+            else:
+                print("[ZED STANDBY] Camera not detected at start. Running in resilient standby mode...")
+        except Exception as e:
+            print(f"[ZED EXCEPTION] {e}")
 
     image_left = sl.Mat()
     image_depth = sl.Mat()
@@ -288,57 +365,67 @@ def zed_camera_thread():
 
     last_reconnect_time = 0.0
     prev_t = time.time()
+    consecutive_grab_fails = 0
 
     while True:
         if camera_online:
             try:
-                err = zed_cam.grab()
-                if err == sl.ERROR_CODE.SUCCESS:
-                    curr_t = time.time()
-                    fps_cam = 0.9 * fps_cam + 0.1 * (1.0 / max(curr_t - prev_t, 1e-4))
-                    prev_t = curr_t
+                with cam_lock:
+                    err = zed_cam.grab()
+                    if err == sl.ERROR_CODE.SUCCESS:
+                        consecutive_grab_fails = 0
+                        curr_t = time.time()
+                        fps_cam = 0.9 * fps_cam + 0.1 * (1.0 / max(curr_t - prev_t, 1e-4))
+                        prev_t = curr_t
 
-                    # Left RGB
-                    zed_cam.retrieve_image(image_left, sl.VIEW.LEFT)
-                    rgb_bgr = cv2.cvtColor(image_left.get_data(), cv2.COLOR_BGRA2BGR)
-                    rgb_small = cv2.resize(rgb_bgr, (640, 360))
-                    _, rgb_jpeg = cv2.imencode('.jpg', rgb_small, [cv2.IMWRITE_JPEG_QUALITY, 75])
+                        # Left RGB
+                        zed_cam.retrieve_image(image_left, sl.VIEW.LEFT)
+                        rgb_bgr = cv2.cvtColor(image_left.get_data(), cv2.COLOR_BGRA2BGR)
+                        rgb_small = cv2.resize(rgb_bgr, (640, 360))
+                        _, rgb_jpeg = cv2.imencode('.jpg', rgb_small, [cv2.IMWRITE_JPEG_QUALITY, 75])
 
-                    # Colorized Depth
-                    zed_cam.retrieve_image(image_depth, sl.VIEW.DEPTH)
-                    depth_bgr = cv2.cvtColor(image_depth.get_data(), cv2.COLOR_BGRA2BGR)
-                    depth_small = cv2.resize(depth_bgr, (640, 360))
-                    _, depth_jpeg = cv2.imencode('.jpg', depth_small, [cv2.IMWRITE_JPEG_QUALITY, 70])
+                        # Colorized Depth
+                        zed_cam.retrieve_image(image_depth, sl.VIEW.DEPTH)
+                        depth_bgr = cv2.cvtColor(image_depth.get_data(), cv2.COLOR_BGRA2BGR)
+                        depth_small = cv2.resize(depth_bgr, (640, 360))
+                        _, depth_jpeg = cv2.imencode('.jpg', depth_small, [cv2.IMWRITE_JPEG_QUALITY, 70])
 
-                    # Center distance laser
-                    zed_cam.retrieve_measure(depth_meas, sl.MEASURE.DEPTH)
-                    cx = depth_meas.get_width() // 2
-                    cy = depth_meas.get_height() // 2
-                    err_c, d_val = depth_meas.get_value(cx, cy)
-                    center_dist_str = f"{d_val:.3f}" if (not np.isnan(d_val) and d_val > 0) else "--"
+                        # Center distance laser
+                        zed_cam.retrieve_measure(depth_meas, sl.MEASURE.DEPTH)
+                        cx = depth_meas.get_width() // 2
+                        cy = depth_meas.get_height() // 2
+                        err_c, d_val = depth_meas.get_value(cx, cy)
+                        center_dist_str = f"{d_val:.3f}" if (not np.isnan(d_val) and d_val > 0) else "--"
 
-                    with frame_lock:
-                        latest_rgb_frame = rgb_jpeg.tobytes()
-                        latest_depth_frame = depth_jpeg.tobytes()
-                else:
-                    camera_online = False
-                    print(f"[ZED DISCONNECTED] Grab failed ({err}). Entering standby mode...")
-                    with frame_lock:
-                        latest_rgb_frame = make_placeholder_frame("VIEW: LEFT (DISCONNECTED)", color=(0, 100, 255))
-                        latest_depth_frame = make_placeholder_frame("MEASURE: DEPTH (STANDBY)", color=(120, 120, 120))
+                        with frame_lock:
+                            latest_rgb_frame = rgb_jpeg.tobytes()
+                            latest_depth_frame = depth_jpeg.tobytes()
+                    else:
+                        consecutive_grab_fails += 1
+                        # Only enter offline standby if grab fails repeatedly (e.g. 10 consecutive frames)
+                        if consecutive_grab_fails > 10:
+                            camera_online = False
+                            print(f"[ZED DISCONNECTED] Grab failed {consecutive_grab_fails} times ({err}). Entering standby mode...")
+                            with frame_lock:
+                                latest_rgb_frame = make_placeholder_frame("VIEW: LEFT (DISCONNECTED)", color=(0, 100, 255))
+                                latest_depth_frame = make_placeholder_frame("MEASURE: DEPTH (STANDBY)", color=(120, 120, 120))
             except Exception as ex:
-                camera_online = False
-                print(f"[ZED EXCEPTION] {ex}")
+                consecutive_grab_fails += 1
+                if consecutive_grab_fails > 10:
+                    camera_online = False
+                    print(f"[ZED EXCEPTION] {ex}")
         else:
             # Standby mode: poll for camera reconnection every 3.0s
             curr_t = time.time()
             if curr_t - last_reconnect_time > 3.0:
                 last_reconnect_time = curr_t
                 try:
-                    zed_cam.close()
-                    if zed_cam.open(init_params) == sl.ERROR_CODE.SUCCESS:
-                        camera_online = True
-                        print("\n[ZED RECONNECTED] Camera successfully reconnected!\n")
+                    with cam_lock:
+                        zed_cam.close()
+                        if zed_cam.open(init_params) == sl.ERROR_CODE.SUCCESS:
+                            camera_online = True
+                            consecutive_grab_fails = 0
+                            print("\n[ZED RECONNECTED] Camera successfully reconnected!\n")
                 except Exception:
                     pass
             time.sleep(0.04)
@@ -407,10 +494,24 @@ def tcp_server_thread():
                             try:
                                 parts = [float(v.strip()) for v in msg.split(',')]
                                 if len(parts) == 7:
+                                    # ABB Format: X, Y, Z, Qw, Qx, Qy, Qz
                                     tx_mm, ty_mm, tz_mm, qw, qx, qy, qz = parts
                                     t_base2ee = np.array([tx_mm / 1000.0, ty_mm / 1000.0, tz_mm / 1000.0], dtype=np.float32)
                                     rot_base2ee = Rotation.from_quat([qx, qy, qz, qw]).as_matrix().astype(np.float32)
+                                elif len(parts) == 6:
+                                    # KUKA Format: X, Y, Z, A, B, C (Euler Z-Y-X in degrees)
+                                    tx_mm, ty_mm, tz_mm, a_deg, b_deg, c_deg = parts
+                                    t_base2ee = np.array([tx_mm / 1000.0, ty_mm / 1000.0, tz_mm / 1000.0], dtype=np.float32)
                                     
+                                    # Convert KUKA A, B, C (Intrinsic Z-Y-X) to Rotation matrix
+                                    r = Rotation.from_euler('ZYX', [a_deg, b_deg, c_deg], degrees=True)
+                                    rot_base2ee = r.as_matrix().astype(np.float32)
+                                    
+                                    # Save quaternions to match universal manifest format
+                                    qx, qy, qz, qw = r.as_quat()
+                                else:
+                                    raise ValueError(f"Unknown coordinate format. Expected 6 or 7 values, got {len(parts)}.")
+                                
                                     R_base2cam = rot_base2ee @ R_cam2ee
                                     t_base2cam = rot_base2ee @ t_cam2ee.ravel() + t_base2ee
                                     
@@ -424,38 +525,62 @@ def tcp_server_thread():
                                     
                                     if camera_online:
                                         point_cloud = sl.Mat()
-                                        zed_cam.retrieve_measure(point_cloud, sl.MEASURE.XYZRGBA)
-                                        
+                                        image_left_stage = sl.Mat()
+                                        depth_meas_stage = sl.Mat()
+                                        with cam_lock:
+                                            # Capture a fresh, synchronised frame at this exact robot pose
+                                            zed_cam.grab()
+                                            zed_cam.retrieve_measure(point_cloud, sl.MEASURE.XYZRGBA)
+                                            zed_cam.retrieve_image(image_left_stage, sl.VIEW.LEFT)
+                                            zed_cam.retrieve_measure(depth_meas_stage, sl.MEASURE.DEPTH)
+
                                         min_d = float(scan_config.get("min_depth_m", 0.25))
                                         max_d = float(scan_config.get("max_depth_m", 0.70))
                                         step = int(scan_config.get("subsample_step", 1))
                                         crop = float(scan_config.get("border_crop", 0.06))
                                         nb_n = int(scan_config.get("outlier_nb_neighbors", 16))
                                         std_r = float(scan_config.get("outlier_std_ratio", 1.2))
-                                        
+
                                         pts_cam, col_cam = extract_valid_points(
                                             point_cloud, min_dist=min_d, max_dist=max_d, subsample_step=step, border_crop=crop
                                         )
                                         pts_cam, col_cam = statistical_outlier_removal(pts_cam, col_cam, nb_neighbors=nb_n, std_ratio=std_r)
-                                        
+
                                         stage_count += 1
-                                        stage_filename = f"stage_{stage_count:03d}.ply"
-                                        stage_filepath = os.path.join(session_dir, stage_filename)
-                                        save_ply_binary(stage_filepath, pts_cam, col_cam)
-                                        
+                                        stage_base  = f"stage_{stage_count:03d}"
+                                        stage_ply   = stage_base + ".ply"
+                                        stage_rgb   = stage_base + ".png"
+                                        stage_depth = stage_base + "_depth.npy"
+
+                                        # Save PLY point cloud (ICP + Poisson pipeline)
+                                        save_ply_binary(os.path.join(session_dir, stage_ply), pts_cam, col_cam)
+
+                                        # Save full-res RGB image (TSDF + 3DGS pipelines)
+                                        save_stage_rgb(os.path.join(session_dir, stage_rgb), image_left_stage)
+
+                                        # Save raw float32 depth map in metres (TSDF pipeline)
+                                        save_stage_depth(os.path.join(session_dir, stage_depth), depth_meas_stage)
+
+                                        # Write camera intrinsics into manifest once (first stage only)
+                                        if "intrinsics" not in manifest_data:
+                                            manifest_data["intrinsics"] = get_camera_intrinsics(zed_cam)
+                                            print(f"[SESSION] Camera intrinsics saved: {manifest_data['intrinsics']}")
+
                                         manifest_data["stages"].append({
                                             "index": stage_count,
-                                            "ply": stage_filename,
+                                            "ply": stage_ply,
+                                            "rgb": stage_rgb,
+                                            "depth_npy": stage_depth,
                                             "pose_flange": [tx_mm, ty_mm, tz_mm, qw, qx, qy, qz],
                                             "time": time.strftime("%H:%M:%S")
                                         })
                                         with open(manifest_path, "w") as f:
                                             json.dump(manifest_data, f, indent=2)
-                                            
+
                                         pts_base = pts_cam @ R_base2cam.T + t_base2cam
                                         accumulated_points.append(pts_base)
                                         accumulated_colors.append(col_cam)
-                                        print(f"[STAGE #{stage_count}] Captured ({len(pts_cam):,} pts) | Flange: ({tx_mm:.1f}, {ty_mm:.1f}, {tz_mm:.1f}) mm -> {stage_filename}")
+                                        print(f"[STAGE #{stage_count}] Captured ({len(pts_cam):,} pts) | RGB+Depth saved | Flange: ({tx_mm:.1f}, {ty_mm:.1f}, {tz_mm:.1f}) mm -> {stage_ply}")
                                     else:
                                         print(f"[STAGE NOTICE] Robot waypoint received ({tx_mm:.1f}, {ty_mm:.1f}, {tz_mm:.1f}), but camera is OFFLINE.")
                             except Exception as pe:
@@ -655,15 +780,42 @@ def api_clean():
         'points': len(clean_pts)
     })
 
-@app.route('/api/action/open3d_icp', methods=['POST'])
-def api_open3d_icp():
+@app.route('/api/action/open3d_pipeline', methods=['POST'])
+def api_open3d_pipeline():
     """
-    Executes the Open3D Multi-Way ICP and Poisson Reconstruction pipeline.
+    Executes the Open3D pipeline with chosen mode (icp, tsdf, or both).
     """
-    run_open3d_pipeline_async()
+    req = request.get_json() or {}
+    mode = req.get("mode", "icp")
+    detail = req.get("detail", "medium")
+    
+    # Save the requested detail level to scan_config.json
+    try:
+        if os.path.exists("scan_config.json"):
+            with open("scan_config.json", "r") as f:
+                cfg = json.load(f)
+        else:
+            cfg = {}
+        cfg["mesh_detail"] = detail
+        with open("scan_config.json", "w") as f:
+            json.dump(cfg, f, indent=2)
+    except Exception as e:
+        print(f"Warning: could not save mesh_detail to config: {e}")
+
+    success, msg = run_open3d_pipeline_async(mode)
     return jsonify({
-        'success': True,
-        'message': 'Launched Open3D Multi-Way ICP & Surface Reconstruction on session stages.'
+        'success': success,
+        'message': msg
+    })
+
+@app.route('/api/pipeline/logs')
+def api_pipeline_logs():
+    with pipeline_lock:
+        logs = "".join(pipeline_logs)
+        is_running = pipeline_process is not None and pipeline_process.poll() is None
+    return jsonify({
+        'running': is_running,
+        'logs': logs
     })
 
 @app.route('/api/action/clear', methods=['POST'])
@@ -676,7 +828,16 @@ def api_clear():
     manifest_data["stages"].clear()
     with open(manifest_path, "w") as f:
         json.dump(manifest_data, f, indent=2)
-    print("[WEB ACTION] Reset workpiece scan buffer and session stages.")
+        
+    # Also delete the orphaned files in the session directory to prevent confusion
+    try:
+        for filename in os.listdir(session_dir):
+            if filename.endswith(".ply") or filename.endswith(".png") or filename.endswith(".npy"):
+                os.remove(os.path.join(session_dir, filename))
+    except Exception as e:
+        print(f"[WEB ACTION] Notice during file cleanup: {e}")
+        
+    print("[WEB ACTION] Reset workpiece scan buffer, session stages, and deleted old files.")
     return jsonify({'success': True, 'message': 'Scan buffer and session stages reset.'})
 
 if __name__ == "__main__":
@@ -689,7 +850,7 @@ if __name__ == "__main__":
     t_tcp.start()
     
     print("\n" + "=" * 68)
-    print("      ABB ROBOT 3D SCANNING STUDIO // WEB APPLICATION")
+    print("           ROBOT 3D SCANNING STUDIO // WEB APPLICATION")
     print("=" * 68)
     print(" -> Web Studio Interface:  http://localhost:8080")
     print(" -> Robot TCP Listen Port: 5000")

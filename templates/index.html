@@ -541,7 +541,7 @@
     <div class="brand">
       <div class="brand-logo"></div>
       <div>
-        <div class="brand-title">ABB ROBOT 3D SCANNING STUDIO</div>
+        <div class="brand-title">ROBOT 3D SCANNING STUDIO</div>
         <div class="brand-subtitle">ZED M CAMERA // OPEN3D MULTI-WAY ICP PIPELINE</div>
       </div>
     </div>
@@ -574,8 +574,8 @@
       <button class="btn btn-blue" onclick="cleanDenoise()" title="Run Outlier Removal and Voxel Averaging on points in memory">
         <span>🧹</span> CLEAN & DE-NOISE
       </button>
-      <button class="btn btn-orange" onclick="runOpen3DICP()" title="Run Open3D Multi-Way ICP & Poisson Meshing on session stages">
-        <span>⚡</span> RUN OPEN3D ICP
+      <button class="btn btn-orange" onclick="openPipelineModal()" title="Run Open3D TSDF or ICP Reconstruction Pipeline">
+        <span>⚡</span> RUN OPEN3D PIPELINE
       </button>
       <button class="btn btn-dark" onclick="openConfigModal()" title="Configure Scanning Range & Reconstruction Parameters">
         <span>⚙️</span> SCAN SETTINGS
@@ -1160,14 +1160,69 @@
       }
     }
 
-    async function runOpen3DICP() {
+    // --- Pipeline Execution & Terminal ---
+    let logPollInterval = null;
+
+    function openPipelineModal() {
+      document.getElementById('pipeline-modal').style.display = 'flex';
+      pollPipelineLogs(); // Just to load existing logs if any
+      if (!logPollInterval) {
+        logPollInterval = setInterval(pollPipelineLogs, 500);
+      }
+    }
+
+    function closePipelineModal() {
+      document.getElementById('pipeline-modal').style.display = 'none';
+      if (logPollInterval) {
+        clearInterval(logPollInterval);
+        logPollInterval = null;
+      }
+    }
+
+    async function pollPipelineLogs() {
       try {
-        const res = await fetch('/api/action/open3d_icp', { method: 'POST' });
+        const res = await fetch('/api/pipeline/logs');
         const data = await res.json();
-        alert(data.message);
-        setTimeout(fetchMesh, 4000);
+        const term = document.getElementById('pipeline-terminal');
+        const isScrolledToBottom = term.scrollHeight - term.clientHeight <= term.scrollTop + 10;
+        
+        term.innerText = data.logs;
+        
+        if (isScrolledToBottom) {
+          term.scrollTop = term.scrollHeight;
+        }
+
+        const btn = document.getElementById('start-pipeline-btn');
+        if (data.running) {
+          btn.style.opacity = '0.5';
+          btn.style.pointerEvents = 'none';
+          btn.innerHTML = '<span>⏳</span> RUNNING...';
+        } else {
+          btn.style.opacity = '1';
+          btn.style.pointerEvents = 'auto';
+          btn.innerHTML = '<span>▶</span> START RECONSTRUCTION';
+        }
       } catch (e) {
-        alert("ICP error: " + e);
+        console.warn("Pipeline log poll error:", e);
+      }
+    }
+
+    async function startPipelineJob() {
+      const mode = document.getElementById('pipeline-mode-select').value;
+      const detail = document.getElementById('pipeline-detail-select').value;
+      try {
+        const res = await fetch('/api/action/open3d_pipeline', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ mode: mode, detail: detail })
+        });
+        const data = await res.json();
+        if (!data.success) {
+          alert(data.message);
+        }
+        pollPipelineLogs();
+      } catch (e) {
+        alert("Pipeline launch error: " + e);
       }
     }
 
@@ -1456,5 +1511,49 @@
       </div>
     </div>
   </div>
+  <!-- Open3D Pipeline Terminal Modal -->
+  <div id="pipeline-modal" class="modal-backdrop" style="display: none;">
+    <div class="modal-window" style="width: 700px; max-width: 90vw;">
+      <div class="modal-header">
+        <div class="modal-title">
+          <span>⚡</span> OPEN3D RECONSTRUCTION PIPELINE
+        </div>
+        <button class="modal-close-btn" onclick="closePipelineModal()">&times;</button>
+      </div>
+      <div class="modal-body" style="gap: 16px;">
+        <div class="config-field" style="background: #181822;">
+          <div class="config-field-header">
+            <span class="config-field-label">Pipeline Mode:</span>
+            <select id="pipeline-mode-select" class="config-num-input" style="width: 250px; font-size: 12px; padding: 6px;">
+              <option value="tsdf">TSDF Volumetric Fusion (Robust)</option>
+              <option value="icp">Multi-Way ICP + Poisson (Legacy)</option>
+              <option value="both">Run Both Pipelines</option>
+            </select>
+          </div>
+          <div class="config-field-desc">TSDF Volumetric Fusion uses camera depth to perfectly resolve multipath/double-face artifacts. ICP uses purely point geometry.</div>
+        </div>
+        <div class="config-field" style="background: #181822;">
+          <div class="config-field-header">
+            <span class="config-field-label">Export Mesh Detail Level:</span>
+            <select id="pipeline-detail-select" class="config-num-input" style="width: 250px; font-size: 12px; padding: 6px;">
+              <option value="high">High (Raw, Massive File Size)</option>
+              <option value="medium" selected>Medium (~100,000 Triangles)</option>
+              <option value="low">Low (~30,000 Triangles)</option>
+            </select>
+          </div>
+          <div class="config-field-desc">Decimates the dense reconstruction to an optimized triangle count for CAD/Rhino imports.</div>
+        </div>
+        <div style="display: flex; justify-content: flex-end;">
+          <button id="start-pipeline-btn" class="btn btn-green" onclick="startPipelineJob()" style="padding: 10px 20px; font-size: 13px;">
+            <span>▶</span> START RECONSTRUCTION
+          </button>
+        </div>
+        <div style="background: #000; padding: 12px; border-radius: 4px; border: 1px solid #303042;">
+          <pre id="pipeline-terminal" style="margin: 0; font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #a1a1aa; height: 350px; overflow-y: auto; white-space: pre-wrap; line-height: 1.4;"></pre>
+        </div>
+      </div>
+    </div>
+  </div>
+
 </body>
 </html>
