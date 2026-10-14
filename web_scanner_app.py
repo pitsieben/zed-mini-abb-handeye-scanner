@@ -285,9 +285,12 @@ def get_latest_mesh_path():
 pipeline_process = None
 pipeline_logs = []
 pipeline_lock = threading.Lock()
+pipeline_run_id = 0
+pipeline_status = {"run_id": 0, "running": False, "mode": None, "return_code": None, "finished_at": None}
+scan_completion_id = 0
 
 def _read_process_output(process):
-    global pipeline_logs
+    global pipeline_logs, pipeline_status
     # Read line by line with iter
     for line in iter(process.stdout.readline, ''):
         if line:
@@ -300,15 +303,18 @@ def _read_process_output(process):
     process.wait()
     with pipeline_lock:
         pipeline_logs.append(f"\n[PROCESS EXITED] Code {process.returncode}\n")
+        pipeline_status.update({"running": False, "return_code": process.returncode, "finished_at": time.time()})
 
 def run_open3d_pipeline_async(mode="icp"):
-    global pipeline_process, pipeline_logs
+    global pipeline_process, pipeline_logs, pipeline_run_id, pipeline_status
     py311_exe = r"C:\Users\pitsi\AppData\Local\Programs\Python\Python311\python.exe"
     script_path = os.path.join("tools", "open3d_pipeline.py")
     
     with pipeline_lock:
         if pipeline_process is not None and pipeline_process.poll() is None:
             return False, "Pipeline already running."
+        pipeline_run_id += 1
+        pipeline_status = {"run_id": pipeline_run_id, "running": True, "mode": mode, "return_code": None, "finished_at": None}
         pipeline_logs = [f"[SYSTEM] Starting Open3D Pipeline in '{mode}' mode...\n"]
     
     if os.path.exists(py311_exe) and os.path.exists(script_path):
@@ -331,6 +337,7 @@ def run_open3d_pipeline_async(mode="icp"):
     else:
         with pipeline_lock:
             pipeline_logs.append("[ERROR] Python 3.11 or open3d_pipeline.py not found.\n")
+            pipeline_status.update({"running": False, "return_code": -1, "finished_at": time.time()})
         return False, "Python environment not found."
 
 # --- Resilient Background ZED Camera Thread ---
@@ -467,6 +474,8 @@ def tcp_server_thread():
                         last_raw_message = msg
                         
                         if msg == "DONE":
+                            global scan_completion_id
+                            scan_completion_id += 1
                             print("\n[ROBOT MESSAGE] Robot completed entire scanning toolpath!\n")
                             if len(accumulated_points) > 0:
                                 all_pts = np.vstack(accumulated_points)
@@ -643,6 +652,12 @@ def api_status():
         'mesh_stats': mesh_info
     })
 
+@app.route('/api/events')
+def api_events():
+    with pipeline_lock:
+        status = dict(pipeline_status)
+    return jsonify({"scan_completion_id": scan_completion_id, "pipeline": status})
+
 @app.route('/api/points')
 def api_points():
     """
@@ -813,9 +828,11 @@ def api_pipeline_logs():
     with pipeline_lock:
         logs = "".join(pipeline_logs)
         is_running = pipeline_process is not None and pipeline_process.poll() is None
+        status = dict(pipeline_status)
     return jsonify({
         'running': is_running,
-        'logs': logs
+        'logs': logs,
+        'status': status
     })
 
 @app.route('/api/action/clear', methods=['POST'])

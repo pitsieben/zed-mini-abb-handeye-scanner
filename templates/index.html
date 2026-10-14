@@ -7,6 +7,18 @@
   <script src="/static/three.min.js"></script>
   <script src="/static/OrbitControls.js"></script>
   <style>
+    :root {
+      color-scheme: dark;
+      --canvas: #090b0e;
+      --surface: rgba(30, 33, 38, .58);
+      --surface-raised: rgba(42, 46, 52, .66);
+      --line: rgba(255, 255, 255, .11);
+      --text: #c5c7cb;
+      --muted: #858991;
+      --accent: #70d6a0;
+      --blue: #71b9ff;
+      --radius: 14px;
+    }
     * {
       box-sizing: border-box;
       margin: 0;
@@ -14,69 +26,16 @@
       user-select: none;
     }
     body {
-      background-color: #0b0b0e;
-      color: #e4e4e7;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "JetBrains Mono", monospace;
+      background: radial-gradient(ellipse at 78% 10%, #17202a 0%, var(--canvas) 52%);
+      color: var(--text);
+      font-family: "SF Mono", SFMono-Regular, ui-monospace, Menlo, Consolas, monospace;
       height: 100vh;
       overflow: hidden;
       display: flex;
       flex-direction: column;
     }
 
-    /* Top Studio Header */
-    header {
-      background-color: #121217;
-      border-bottom: 1px solid #1f1f28;
-      height: 52px;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 0 16px;
-      z-index: 20;
-    }
-    .brand {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-    }
-    .brand-logo {
-      width: 14px;
-      height: 14px;
-      background-color: #22c55e;
-      border-radius: 2px;
-      box-shadow: 0 0 10px rgba(34, 197, 94, 0.4);
-    }
-    .brand-title {
-      font-weight: 700;
-      font-size: 13px;
-      letter-spacing: 1.5px;
-      color: #ffffff;
-      text-transform: uppercase;
-    }
-    .brand-subtitle {
-      font-size: 10px;
-      color: #71717a;
-      letter-spacing: 0.8px;
-    }
-
-    /* Status Badges */
-    .status-group {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-    }
-    .badge {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      background: #17171f;
-      border: 1px solid #252532;
-      border-radius: 3px;
-      padding: 5px 10px;
-      font-size: 11px;
-      font-family: monospace;
-      color: #d4d4d8;
-    }
+    /* Camera and robot connection indicators */
     .badge-dot {
       width: 8px;
       height: 8px;
@@ -97,101 +56,98 @@
       50% { opacity: 0.4; }
     }
 
-    /* Header Action Buttons (Matching Robot Scanner Dashboard) */
-    .action-group {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
     .btn {
-      border-radius: 3px;
-      font-size: 11px;
+      border-radius: 999px;
+      font-size: 10px;
       font-weight: 600;
-      letter-spacing: 0.6px;
-      padding: 6px 14px;
+      letter-spacing: .25px;
+      padding: 9px 13px;
       cursor: pointer;
       display: flex;
       align-items: center;
       gap: 6px;
-      transition: all 0.15s ease;
+      transition: transform .18s ease, filter .18s ease, background .18s ease;
       border: 1px solid transparent;
       outline: none;
     }
     .btn-green {
-      background: #14532d;
-      border-color: #22c55e;
-      color: #ffffff;
+      background: #e8fff2;
+      border-color: transparent;
+      color: #10271c;
     }
     .btn-green:hover {
-      background: #166534;
-      box-shadow: 0 0 10px rgba(34, 197, 94, 0.4);
+      background: #c9f8dc;
+      transform: translateY(-1px);
     }
     .btn-blue {
-      background: #1e3a8a;
-      border-color: #3b82f6;
+      background: rgba(56, 133, 213, .22);
+      border-color: rgba(113,185,255,.35);
       color: #ffffff;
     }
     .btn-blue:hover {
-      background: #1d4ed8;
-      box-shadow: 0 0 10px rgba(59, 130, 246, 0.4);
+      background: rgba(56, 133, 213, .34);
+      transform: translateY(-1px);
     }
     .btn-orange {
-      background: #7c2d12;
-      border-color: #f97316;
+      background: rgba(196, 110, 41, .2);
+      border-color: rgba(255,166,94,.28);
       color: #ffffff;
     }
     .btn-orange:hover {
-      background: #9a3412;
+      background: rgba(196, 110, 41, .34);
       box-shadow: 0 0 10px rgba(249, 115, 22, 0.4);
     }
     .btn-dark {
-      background: #1e1e26;
-      border-color: #353545;
+      background: rgba(255,255,255,.055);
+      border-color: var(--line);
       color: #e4e4e7;
     }
     .btn-dark:hover {
-      background: #282836;
-      border-color: #4a4a60;
+      background: rgba(255,255,255,.12);
+      transform: translateY(-1px);
     }
 
     /* Main Workspace Split */
     main {
       flex: 1;
       display: grid;
-      grid-template-columns: 480px 1fr;
-      height: calc(100vh - 84px);
-      background-color: #0b0b0e;
+      grid-template-columns: minmax(310px, 25vw) minmax(0, 1fr);
+      min-height: 0;
+      width: 100%;
+      overflow: hidden;
     }
 
     /* Left Video Feeds Column */
     .left-panel {
-      background-color: #101014;
-      border-right: 1px solid #1c1c24;
+      background: transparent;
       display: flex;
       flex-direction: column;
-      gap: 10px;
-      padding: 12px;
+      gap: 12px;
+      padding: 14px 10px 14px 14px;
       overflow-y: auto;
     }
     .feed-card {
-      background-color: #14141a;
-      border: 1px solid #22222c;
-      border-radius: 4px;
+      position: relative;
+      background: linear-gradient(145deg, rgba(255,255,255,.085), rgba(255,255,255,.025) 50%, rgba(10,12,15,.34));
+      border: 1px solid var(--line);
+      border-radius: 22px;
       overflow: hidden;
       display: flex;
       flex-direction: column;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.11), 0 12px 28px rgba(0,0,0,.17);
+      backdrop-filter: blur(26px) saturate(145%);
     }
     .feed-header {
       display: flex;
       align-items: center;
       justify-content: space-between;
       padding: 6px 12px;
-      background: #181820;
-      border-bottom: 1px solid #22222c;
-      font-size: 11px;
+      background: rgba(255,255,255,.055);
+      border-bottom: 1px solid var(--line);
+      font-size: 10px;
       font-weight: 600;
       letter-spacing: 0.8px;
-      color: #a1a1aa;
+      color: #a2a5aa;
     }
     .feed-label {
       font-size: 10px;
@@ -203,8 +159,8 @@
     .feed-media {
       position: relative;
       width: 100%;
-      height: 240px;
-      background: #000;
+      height: clamp(150px, 22vh, 220px);
+      background: radial-gradient(ellipse at 50% 35%, rgba(93,101,111,.08), transparent 65%), rgba(5,7,9,.76);
       display: flex;
       align-items: center;
       justify-content: center;
@@ -238,10 +194,10 @@
       position: absolute;
       bottom: 8px;
       left: 8px;
-      background: rgba(10, 10, 14, 0.85);
-      border: 1px solid #2c2c3c;
+      background: rgba(8, 11, 14, .82);
+      border: 1px solid var(--line);
       padding: 3px 8px;
-      border-radius: 3px;
+      border-radius: 999px;
       font-size: 11px;
       font-family: monospace;
       color: #22c55e;
@@ -249,41 +205,46 @@
 
     /* Robot Telemetry Card */
     .telemetry-card {
-      background-color: #14141a;
-      border: 1px solid #22222c;
-      border-radius: 4px;
-      padding: 12px;
+      background: linear-gradient(145deg, rgba(255,255,255,.075), rgba(255,255,255,.028) 52%, rgba(12,14,17,.28));
+      border: 1px solid var(--line);
+      border-radius: 22px;
+      padding: 16px 17px;
       display: flex;
       flex-direction: column;
       gap: 6px;
       font-size: 11px;
-      font-family: monospace;
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.09), 0 12px 28px rgba(0,0,0,.14);
+      backdrop-filter: blur(26px) saturate(145%);
     }
+    .telemetry-heading { color: #858991; font-size: 9px; letter-spacing: .7px; padding-bottom: 3px; }
+    .telemetry-metrics { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 8px; margin-bottom: 5px; }
+    .telemetry-metric { min-width: 0; padding: 10px 11px; border: 1px solid rgba(255,255,255,.08); border-radius: 13px; background: rgba(255,255,255,.04); display: flex; flex-direction: column; gap: 5px; }
+    .telemetry-metric-label { color: #858991; font-size: 9px; }
+    .telemetry-metric-value { color: #c7c9cd; font-size: 12px; font-weight: 600; font-variant-numeric: tabular-nums; }
     .telemetry-row {
       display: flex;
       justify-content: space-between;
-      border-bottom: 1px solid #1a1a24;
-      padding-bottom: 4px;
+      border-bottom: 1px solid rgba(255,255,255,.07);
+      padding-bottom: 7px;
     }
     .telemetry-label {
-      color: #71717a;
+      color: #858991;
     }
     .telemetry-val {
-      color: #e4e4e7;
+      color: #c9cbd0;
       font-weight: 600;
     }
-    .telemetry-val.lime {
-      color: #22c55e;
-    }
-    .telemetry-val.cyan {
-      color: #38bdf8;
-    }
+    .telemetry-val.lime { color: #b7c8bd; }
+    .telemetry-val.cyan { color: #b5c0cc; }
+    .feed-label, .telemetry-label { color: #92969d; }
+    .header-hint { color: #858991; font-size: 10px; letter-spacing: 0; }
     .telemetry-raw {
-      background: #0d0d12;
-      border: 1px solid #1f1f2a;
+      background: rgba(0,0,0,.2);
+      border: 1px solid var(--line);
       padding: 6px 8px;
-      border-radius: 3px;
-      color: #a1a1aa;
+      border-radius: 8px;
+      color: #aaadb2;
       font-size: 10px;
       overflow-x: auto;
       white-space: nowrap;
@@ -292,10 +253,14 @@
     /* Right 3D Viewport */
     .viewport-panel {
       position: relative;
-      width: 100%;
-      height: 100%;
-      background: #08080b;
+      width: calc(100% - 18px);
+      height: calc(100% - 28px);
+      margin: 14px 14px 14px 4px;
+      border: 1px solid rgba(255,255,255,.12);
+      border-radius: 24px;
+      background: linear-gradient(145deg, rgba(255,255,255,.055), rgba(255,255,255,.012) 38%, rgba(7,9,12,.12)), radial-gradient(ellipse at center, #111820, #080b0f 76%);
       overflow: hidden;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.08), 0 14px 38px rgba(0,0,0,.18);
     }
     #three-container {
       width: 100%;
@@ -307,16 +272,16 @@
       position: absolute;
       top: 14px;
       right: 14px;
-      background: rgba(16, 16, 22, 0.90);
-      border: 1px solid #282838;
-      border-radius: 4px;
-      padding: 10px 14px;
+      background: linear-gradient(145deg, rgba(71,76,83,.62), rgba(25,29,34,.68));
+      border: 1px solid rgba(255,255,255,.15);
+      border-radius: 24px;
+      padding: 10px;
       display: flex;
       flex-direction: column;
-      gap: 8px;
+      gap: 7px;
       z-index: 10;
-      backdrop-filter: blur(8px);
-      box-shadow: 0 4px 18px rgba(0,0,0,0.5);
+      backdrop-filter: blur(30px) saturate(155%);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.14), 0 16px 45px rgba(0,0,0,.32);
     }
     .zed-overlay-title {
       font-size: 10px;
@@ -339,6 +304,56 @@
       accent-color: #22c55e;
       cursor: pointer;
     }
+    .zed-overlay-box .zed-overlay-title,
+    .zed-overlay-box .zed-checkbox-item,
+    .zed-overlay-box .zed-slider-row,
+    .zed-overlay-box > .btn-dark { display: none; }
+    .glass-layer-button {
+      position: relative;
+      width: 48px;
+      height: 48px;
+      display: grid;
+      place-items: center;
+      border: 1px solid rgba(255,255,255,.1);
+      border-radius: 16px;
+      background: linear-gradient(150deg, rgba(255,255,255,.15), rgba(255,255,255,.045));
+      color: #c6c9ce;
+      cursor: pointer;
+      transition: transform .18s cubic-bezier(.2,1.25,.4,1), color .18s ease, background .18s ease, box-shadow .18s ease, border-color .18s ease;
+    }
+    .glass-layer-button svg { width: 21px; height: 21px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+    .glass-layer-button:hover, .glass-layer-button:focus-visible { transform: scale(1.08); background: rgba(255,255,255,.13); outline: none; }
+    .glass-layer-button[aria-pressed="true"] {
+      color: #c9ffdf;
+      border-color: rgba(151,255,190,.55);
+      background: linear-gradient(145deg, rgba(111,224,151,.33), rgba(69,154,102,.2));
+      box-shadow: inset 0 1px 0 rgba(229,255,239,.3), 0 0 0 1px rgba(143,245,177,.13), 0 0 22px rgba(104,232,149,.24);
+    }
+    .glass-layer-button.is-popping { animation: layer-pop .24s cubic-bezier(.2,1.25,.4,1); }
+    @keyframes layer-pop { 45% { transform: scale(1.16); } 100% { transform: scale(1); } }
+    .glass-layer-button .glass-layer-label {
+      position: absolute;
+      right: calc(100% + 12px);
+      top: 50%;
+      transform: translate(4px,-50%);
+      padding: 7px 10px;
+      border: 1px solid rgba(255,255,255,.13);
+      border-radius: 10px;
+      background: rgba(39,43,49,.94);
+      color: #bfc2c7;
+      font: 10px "SF Mono", SFMono-Regular, ui-monospace, monospace;
+      white-space: nowrap;
+      opacity: 0;
+      pointer-events: none;
+      transition: .16s ease;
+      box-shadow: 0 8px 24px rgba(0,0,0,.25);
+    }
+    .glass-layer-button:hover .glass-layer-label,
+    .glass-layer-button:focus-visible .glass-layer-label { opacity: 1; transform: translate(0,-50%); }
+    .glass-layer-separator { height: 1px; margin: 2px 4px; background: rgba(255,255,255,.17); }
+    .point-size-control { display: grid; justify-items: center; gap: 5px; padding: 7px 2px 3px; color: #a8abb1; font-size: 9px; }
+    .point-size-control input { width: 54px; accent-color: #a8edbf; writing-mode: vertical-lr; direction: rtl; height: 78px; }
+    .layer-state-input { position: absolute !important; width: 1px !important; height: 1px !important; overflow: hidden !important; clip-path: inset(50%) !important; }
     .zed-slider-row {
       display: flex;
       align-items: center;
@@ -357,7 +372,7 @@
       background: rgba(16, 16, 22, 0.85);
       border: 1px solid #282838;
       padding: 6px 12px;
-      border-radius: 3px;
+      border-radius: 999px;
       font-size: 11px;
       font-family: monospace;
       color: #22c55e;
@@ -383,16 +398,16 @@
 
     /* Bottom Status Bar */
     footer {
-      background-color: #0e0e12;
-      border-top: 1px solid #1a1a22;
-      height: 32px;
+      background: rgba(14,17,21,.92);
+      border-top: 1px solid var(--line);
+      min-height: 34px;
       display: flex;
       align-items: center;
       justify-content: space-between;
       padding: 0 16px;
       font-size: 10px;
-      font-family: monospace;
-      color: #71717a;
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      color: var(--muted);
       z-index: 20;
     }
     .fps-meter {
@@ -408,8 +423,8 @@
       display: none;
       position: fixed;
       top: 0; left: 0; width: 100vw; height: 100vh;
-      background: rgba(0, 0, 0, 0.75);
-      backdrop-filter: blur(4px);
+      background: rgba(0, 0, 0, 0.62);
+      backdrop-filter: blur(12px);
       z-index: 100;
       align-items: center;
       justify-content: center;
@@ -418,9 +433,9 @@
       display: flex;
     }
     .modal-window {
-      background: #14141c;
-      border: 1px solid #2d2d3d;
-      border-radius: 6px;
+      background: #171c22;
+      border: 1px solid var(--line);
+      border-radius: 18px;
       width: 540px;
       max-width: 95vw;
       box-shadow: 0 10px 40px rgba(0,0,0,0.8);
@@ -432,9 +447,9 @@
       to { opacity: 1; transform: scale(1.0); }
     }
     .modal-header {
-      background: #191924;
-      border-bottom: 1px solid #28283a;
-      padding: 14px 18px;
+      background: rgba(255,255,255,.035);
+      border-bottom: 1px solid var(--line);
+      padding: 16px 20px;
       display: flex;
       align-items: center;
       justify-content: space-between;
@@ -477,9 +492,9 @@
       display: flex;
       flex-direction: column;
       gap: 5px;
-      background: #0f0f15;
-      border: 1px solid #20202d;
-      border-radius: 4px;
+      background: rgba(0,0,0,.16);
+      border: 1px solid var(--line);
+      border-radius: 11px;
       padding: 10px 12px;
     }
     .config-field-header {
@@ -515,15 +530,71 @@
     }
     .config-num-input {
       width: 75px;
-      background: #181822;
-      border: 1px solid #303042;
+      background: rgba(255,255,255,.06);
+      border: 1px solid var(--line);
       color: #22c55e;
-      border-radius: 3px;
+      border-radius: 7px;
       padding: 4px 6px;
       font-family: monospace;
       font-size: 11px;
       text-align: right;
     }
+    button:focus-visible, input:focus-visible, select:focus-visible {
+      outline: 2px solid var(--blue);
+      outline-offset: 2px;
+    }
+    ::-webkit-scrollbar { width: 8px; height: 8px; }
+    ::-webkit-scrollbar-thumb { background: rgba(255,255,255,.16); border-radius: 8px; }
+    @media (max-width: 1100px) {
+      body { height: auto; min-height: 100vh; overflow: auto; }
+      main { grid-template-columns: minmax(280px, 36%) minmax(0, 1fr); height: min(76vh, 780px); }
+      .btn { padding: 8px 10px; }
+    }
+    @media (max-width: 760px) {
+      main { display: flex; flex-direction: column; height: auto; }
+      main { overflow: auto; }
+      .left-panel { display: grid; grid-template-columns: 1fr 1fr; border: 0; }
+      .telemetry-card { grid-column: 1 / -1; }
+      .feed-media { height: clamp(130px, 35vw, 210px); }
+      .viewport-panel { height: 65vh; min-height: 420px; width: calc(100% - 20px); margin: 0 10px 12px; }
+      .zed-overlay-box { top: 10px; right: 10px; padding: 8px; }
+      .origin-badge { top: 10px; left: 10px; max-width: 42%; font-size: 9px; }
+      footer { gap: 8px; padding: 8px 12px; font-size: 9px; }
+      footer > div:last-child { text-align: right; }
+    }
+    @media (max-width: 480px) {
+      .left-panel { padding: 10px; gap: 9px; }
+      .feed-header { padding: 7px 9px; }
+      .glass-layer-button { width: 42px; height: 42px; border-radius: 14px; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
+    }
+    /* React Bits inspired native toast and magnifying dock */
+    #toast-stack { position: fixed; right: 22px; bottom: 108px; z-index: 2000; display: flex; flex-direction: column; gap: 10px; width: min(360px, calc(100vw - 32px)); pointer-events: none; }
+    .swipe-toast { width: 100%; color: #c7c9cd; animation: toast-in .38s cubic-bezier(.23,1,.32,1) both; pointer-events: auto; font-family: inherit; }
+    .swipe-toast[data-leaving="true"] { animation: toast-out .28s ease both; }
+    .swipe-toast__card { position: relative; display: flex; align-items: center; gap: 11px; padding: 14px 15px; overflow: hidden; border: 1px solid rgba(255,255,255,.15); border-radius: 18px; background: linear-gradient(145deg, rgba(55,59,65,.84), rgba(26,29,34,.78)); box-shadow: inset 0 1px 0 rgba(255,255,255,.1), 0 16px 44px rgba(0,0,0,.4); backdrop-filter: blur(28px) saturate(145%); cursor: grab; touch-action: pan-y; }
+    .swipe-toast__icon { width: 30px; height: 30px; flex: none; display: grid; place-items: center; border-radius: 10px; background: rgba(255,255,255,.08); color: #c6c8cc; font-size: 16px; }
+    .swipe-toast__body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+    .swipe-toast__title { color: #d0d1d4; font-size: 13px; font-weight: 650; }
+    .swipe-toast__desc { color: #999da4; font-size: 11px; line-height: 1.5; }
+    .swipe-toast__close { width: 26px; height: 26px; flex: none; border: 0; border-radius: 50%; background: rgba(255,255,255,.07); color: #c4cbd3; cursor: pointer; }
+    .swipe-toast__fuse { position: absolute; inset: auto 0 0; height: 2px; transform-origin: left; background: linear-gradient(90deg, #858a91, #c2c5ca); animation: toast-fuse var(--toast-duration, 6s) linear forwards; }
+    .swipe-toast:hover .swipe-toast__fuse { animation-play-state: paused; }
+    @keyframes toast-in { from { opacity: 0; transform: translateY(16px) scale(.98); } to { opacity: 1; transform: none; } }
+    @keyframes toast-out { to { opacity: 0; transform: translateY(16px) scale(.98); } }
+    @keyframes toast-fuse { to { transform: scaleX(0); } }
+    #execution-dock { position: fixed; z-index: 1500; left: 50%; bottom: max(16px, env(safe-area-inset-bottom)); transform: translateX(-50%); display: flex; align-items: center; gap: 7px; padding: 10px 12px; border: 1px solid rgba(255,255,255,.16); border-radius: 29px; background: linear-gradient(145deg, rgba(69,73,80,.64), rgba(29,32,37,.68)); box-shadow: inset 0 1px 0 rgba(255,255,255,.13), 0 18px 48px rgba(0,0,0,.46); backdrop-filter: blur(30px) saturate(155%); }
+    .dock-item { position: relative; display: grid; place-items: center; width: 48px; height: 48px; flex: none; border: 1px solid rgba(255,255,255,.1); border-radius: 17px; background: linear-gradient(150deg, rgba(255,255,255,.13), rgba(255,255,255,.035)); color: #c9cbd0; font: inherit; cursor: pointer; transition: transform .16s cubic-bezier(.2,1.25,.4,1), background .16s ease, box-shadow .16s ease; }
+    .dock-item:hover, .dock-item:focus-visible { z-index: 2; transform: translateY(-9px) scale(1.12); background: rgba(255,255,255,.18); box-shadow: 0 8px 18px rgba(0,0,0,.25); }
+    .dock-item:active { transform: translateY(-3px) scale(.96); }
+    .dock-item > span:first-child { font-family: Arial, sans-serif; font-size: 21px; line-height: 1; filter: grayscale(1); }
+    .dock-label { position: absolute; bottom: calc(100% + 12px); left: 50%; transform: translate(-50%, 4px); padding: 6px 9px; border: 1px solid rgba(255,255,255,.13); border-radius: 9px; background: rgba(43,46,52,.94); color: #c7c9cd; font-size: 10px; white-space: nowrap; opacity: 0; pointer-events: none; transition: .16s ease; box-shadow: 0 8px 24px rgba(0,0,0,.22); }
+    .dock-item:hover .dock-label, .dock-item:focus-visible .dock-label { opacity: 1; transform: translate(-50%,0); }
+    .dock-separator { width: 1px; height: 30px; margin: 0 4px; background: rgba(255,255,255,.18); }
+    @media (max-width: 700px) { #execution-dock { gap: 4px; padding: 7px; border-radius: 18px; max-width: calc(100vw - 20px); } .dock-item { width: 41px; height: 43px; border-radius: 13px; } #toast-stack { right: 16px; bottom: 82px; } }
+    @media (prefers-reduced-motion: reduce) { .swipe-toast, .swipe-toast__fuse, .dock-item { animation-duration: .01ms !important; transition-duration: .01ms !important; } }
     .modal-footer {
       background: #191924;
       border-top: 1px solid #28283a;
@@ -535,59 +606,6 @@
   </style>
 </head>
 <body>
-
-  <!-- Top Studio Header -->
-  <header>
-    <div class="brand">
-      <div class="brand-logo"></div>
-      <div>
-        <div class="brand-title">ROBOT 3D SCANNING STUDIO</div>
-        <div class="brand-subtitle">ZED M CAMERA // OPEN3D MULTI-WAY ICP PIPELINE</div>
-      </div>
-    </div>
-
-    <!-- Status Badges -->
-    <div class="status-group">
-      <div class="badge">
-        <div id="cam-dot" class="badge-dot"></div>
-        <span id="cam-status-text">CAMERA: STANDBY</span>
-      </div>
-      <div class="badge">
-        <div id="robot-dot" class="badge-dot"></div>
-        <span id="robot-status-text">ROBOT: WAITING</span>
-      </div>
-      <div class="badge">
-        <span>STAGES:</span>
-        <span id="stage-count-text" style="color: #22c55e; font-weight: bold;">0</span>
-      </div>
-      <div class="badge">
-        <span>WORKPIECE POINTS:</span>
-        <span id="point-count-text" style="color: #38bdf8; font-weight: bold;">0</span>
-      </div>
-    </div>
-
-    <!-- Header Action Buttons (Matching Robot Scanner Dashboard) -->
-    <div class="action-group">
-      <button class="btn btn-green" onclick="saveWorkpiece()" title="Save filtered workpiece in meters and 1:1 mm for Rhino">
-        <span>💾</span> SAVE WORKPIECE
-      </button>
-      <button class="btn btn-blue" onclick="cleanDenoise()" title="Run Outlier Removal and Voxel Averaging on points in memory">
-        <span>🧹</span> CLEAN & DE-NOISE
-      </button>
-      <button class="btn btn-orange" onclick="openPipelineModal()" title="Run Open3D TSDF or ICP Reconstruction Pipeline">
-        <span>⚡</span> RUN OPEN3D PIPELINE
-      </button>
-      <button class="btn btn-dark" onclick="openConfigModal()" title="Configure Scanning Range & Reconstruction Parameters">
-        <span>⚙️</span> SCAN SETTINGS
-      </button>
-      <button class="btn btn-dark" onclick="clearScan()" title="Clear scan buffer and reset session stages">
-        <span>🔄</span> CLEAR SCAN
-      </button>
-      <button class="btn btn-dark" onclick="reset3DView()" title="Recenter 3D Viewport on Base Origin (0,0,0)">
-        <span>🎯</span> RECENTER (0,0,0)
-      </button>
-    </div>
-  </header>
 
   <!-- Main Workspace Split -->
   <main>
@@ -620,6 +638,13 @@
 
       <!-- Live Robot Telemetry Card -->
       <div class="telemetry-card">
+        <div class="telemetry-heading">LIVE CAPTURE</div>
+        <div class="telemetry-metrics">
+          <div class="telemetry-metric"><span class="telemetry-metric-label">CAMERA RATE</span><span class="telemetry-metric-value" id="fps-cam">0.0 HZ</span></div>
+          <div class="telemetry-metric"><span class="telemetry-metric-label">RENDER</span><span class="telemetry-metric-value" id="fps-web">60 FPS</span></div>
+          <div class="telemetry-metric"><span class="telemetry-metric-label">STAGES</span><span class="telemetry-metric-value" id="stage-count-text">0</span></div>
+          <div class="telemetry-metric"><span class="telemetry-metric-label">WORKPIECE POINTS</span><span class="telemetry-metric-value" id="point-count-text">0</span></div>
+        </div>
         <div class="telemetry-row">
           <span class="telemetry-label">Camera Link:</span>
           <span id="tel-cam" class="telemetry-val">OFFLINE (STANDBY)</span>
@@ -649,31 +674,27 @@
     <div class="viewport-panel">
       <div id="three-container"></div>
 
-      <div class="origin-badge">
-        <span>🌐 REFERENCE FRAME: ROBOT BASE (0, 0, 0)</span>
-      </div>
-
       <!-- Studio Layer Controls Overlay -->
       <div class="zed-overlay-box">
         <div class="zed-overlay-title">DISPLAY LAYERS</div>
         <label class="zed-checkbox-item">
-          <input type="checkbox" id="chk-pts" checked onchange="toggleLayer('pts')">
+          <input class="layer-state-input" type="checkbox" id="chk-pts" checked onchange="toggleLayer('pts')">
           <span>POINT CLOUD</span>
         </label>
         <label class="zed-checkbox-item">
-          <input type="checkbox" id="chk-mesh" checked onchange="toggleLayer('mesh')">
+          <input class="layer-state-input" type="checkbox" id="chk-mesh" checked onchange="toggleLayer('mesh')">
           <span>SURFACE MESH (SHADED)</span>
         </label>
         <label class="zed-checkbox-item">
-          <input type="checkbox" id="chk-wire" onchange="toggleLayer('wire')">
+          <input class="layer-state-input" type="checkbox" id="chk-wire" onchange="toggleLayer('wire')">
           <span>WIREFRAME MESH</span>
         </label>
         <label class="zed-checkbox-item">
-          <input type="checkbox" id="chk-tcp" checked onchange="toggleLayer('tcp')">
+          <input class="layer-state-input" type="checkbox" id="chk-tcp" checked onchange="toggleLayer('tcp')">
           <span>ROBOT TCP & AXES</span>
         </label>
         <label class="zed-checkbox-item">
-          <input type="checkbox" id="chk-grid" checked onchange="toggleLayer('grid')">
+          <input class="layer-state-input" type="checkbox" id="chk-grid" checked onchange="toggleLayer('grid')">
           <span>WORLD FLOOR GRID (0,0,0)</span>
         </label>
         <div class="zed-slider-row">
@@ -683,22 +704,32 @@
         <button class="btn btn-dark" style="margin-top: 4px; padding: 4px 8px; justify-content: center;" onclick="frameWorkpiece()">
           <span>🔍</span> FRAME WORKPIECE
         </button>
+        <button class="glass-layer-button" type="button" data-layer="pts" aria-label="Point cloud" aria-pressed="true" onclick="toggleGlassLayer('pts')"><svg viewBox="0 0 24 24"><circle cx="6" cy="7" r="1.3"/><circle cx="12" cy="5" r="1.3"/><circle cx="18" cy="8" r="1.3"/><circle cx="8" cy="13" r="1.3"/><circle cx="15" cy="13" r="1.3"/><circle cx="5" cy="19" r="1.3"/><circle cx="12" cy="18" r="1.3"/><circle cx="19" cy="19" r="1.3"/></svg><span class="glass-layer-label">Point cloud</span></button>
+        <button class="glass-layer-button" type="button" data-layer="mesh" aria-label="Surface mesh" aria-pressed="true" onclick="toggleGlassLayer('mesh')"><svg viewBox="0 0 24 24"><path d="m12 3 8 4.5v9L12 21l-8-4.5v-9L12 3Z"/><path d="m4 7.5 8 4.7 8-4.7M12 12.2V21m0-18v9.2"/></svg><span class="glass-layer-label">Surface mesh</span></button>
+        <button class="glass-layer-button" type="button" data-layer="wire" aria-label="Wireframe mesh" aria-pressed="false" onclick="toggleGlassLayer('wire')"><svg viewBox="0 0 24 24"><path d="m12 3 8 4.5v9L12 21l-8-4.5v-9L12 3Zm0 0v9.2m8-4.7-8 4.7-8-4.7m8 4.7V21"/></svg><span class="glass-layer-label">Wireframe</span></button>
+        <div class="glass-layer-separator"></div>
+        <button class="glass-layer-button" type="button" data-layer="tcp" aria-label="Robot TCP and axes" aria-pressed="true" onclick="toggleGlassLayer('tcp')"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="2.5"/><path d="M12 9.5V3m0 0-2 2m2-2 2 2M14.5 12H21m0 0-2-2m2 2-2 2M12 14.5V21m0 0-2-2m2 2 2-2M9.5 12H3m0 0 2-2m-2 2 2 2"/></svg><span class="glass-layer-label">Robot TCP &amp; axes</span></button>
+        <button class="glass-layer-button" type="button" data-layer="grid" aria-label="World floor grid" aria-pressed="true" onclick="toggleGlassLayer('grid')"><svg viewBox="0 0 24 24"><path d="M3 8h18M3 16h18M8 3v18m8-18v18M3 3h18v18H3z"/></svg><span class="glass-layer-label">World floor grid</span></button>
+        <div class="glass-layer-separator"></div>
+        <button class="glass-layer-button" type="button" aria-label="Frame workpiece" onclick="frameWorkpiece()"><svg viewBox="0 0 24 24"><path d="M9 4H4v5m11-5h5v5M4 15v5h5m11-5v5h-5"/><circle cx="12" cy="12" r="3.5"/></svg><span class="glass-layer-label">Frame workpiece</span></button>
+        <label class="point-size-control"><span>SIZE</span><input aria-label="Point size" type="range" min="1" max="10" value="3" oninput="document.getElementById('rng-pt-size').value=this.value; changePointSize(this.value)"></label>
       </div>
 
-      <div class="viewport-hint">
-        Orbit: Left-Click + Drag  |  Pan: Right-Click + Drag  |  Zoom: Scroll  |  'R': Recenter (0,0,0)
-      </div>
     </div>
   </main>
 
-  <!-- Bottom Playback & Status Bar -->
-  <footer>
-    <div class="fps-meter">
-      <span>CAMERA: <span class="fps-val" id="fps-cam">0.0 HZ</span></span>
-      <span>RENDER: <span class="fps-val" id="fps-web">60 FPS</span></span>
-    </div>
-    <div>ABB ROBOT SCANNING STUDIO // OPEN3D MULTI-WAY ICP // RHINO 1:1 MM EXPORT</div>
-  </footer>
+  <div id="toast-stack" aria-live="polite" aria-atomic="false"></div>
+  <nav id="execution-dock" aria-label="Scan tools">
+    <button class="dock-item" onclick="saveWorkpiece()" aria-label="Save workpiece"><span>💾</span><span class="dock-label">Save workpiece</span></button>
+    <button class="dock-item" onclick="cleanDenoise()" aria-label="Clean and denoise"><span>✦</span><span class="dock-label">Clean &amp; denoise</span></button>
+    <span class="dock-separator" aria-hidden="true"></span>
+    <button class="dock-item" onclick="openPipelineModal()" aria-label="Run Open3D pipeline"><span>⚡</span><span class="dock-label">Reconstruction</span></button>
+    <button class="dock-item" onclick="openConfigModal()" aria-label="Scan settings"><span>⚙</span><span class="dock-label">Scan settings</span></button>
+    <span class="dock-separator" aria-hidden="true"></span>
+    <button class="dock-item" onclick="frameWorkpiece()" aria-label="Frame workpiece"><span>⌗</span><span class="dock-label">Frame workpiece</span></button>
+    <button class="dock-item" onclick="reset3DView()" aria-label="Recenter 3D view"><span>◎</span><span class="dock-label">Recenter view</span></button>
+    <button class="dock-item" onclick="clearScan()" aria-label="Clear scan"><span>↻</span><span class="dock-label">Clear scan</span></button>
+  </nav>
 
   <!-- Three.js 3D Viewport Script -->
   <script>
@@ -710,6 +741,8 @@
     let lastPointCount = -1;
     let currentMeshName = "";
     let workpieceCentroid = new THREE.Vector3(0, 0, 0);
+    let renderFrameCount = 0;
+    let renderFpsUpdatedAt = performance.now();
 
     function init3D() {
       const container = document.getElementById('three-container');
@@ -845,6 +878,13 @@
       requestAnimationFrame(animate);
       controls.update();
       renderer.render(scene, camera);
+      renderFrameCount++;
+      const now = performance.now();
+      if (now - renderFpsUpdatedAt >= 1000) {
+        document.getElementById('fps-web').textContent = `${Math.round(renderFrameCount * 1000 / (now - renderFpsUpdatedAt))} FPS`;
+        renderFrameCount = 0;
+        renderFpsUpdatedAt = now;
+      }
     }
 
     function toggleLayer(layer) {
@@ -864,12 +904,36 @@
         gridGroup.visible = document.getElementById('chk-grid').checked;
         originAxes.visible = document.getElementById('chk-grid').checked;
       }
+      const glassButton = document.querySelector(`.glass-layer-button[data-layer="${layer}"]`);
+      const layerInput = document.getElementById(`chk-${layer}`);
+      if (glassButton && layerInput) glassButton.setAttribute('aria-pressed', String(layerInput.checked));
+    }
+
+    function toggleGlassLayer(layer) {
+      const input = document.getElementById(`chk-${layer}`);
+      if (!input) return;
+      input.checked = !input.checked;
+      toggleLayer(layer);
+      const button = document.querySelector(`.glass-layer-button[data-layer="${layer}"]`);
+      if (button) {
+        button.classList.remove('is-popping');
+        void button.offsetWidth;
+        button.classList.add('is-popping');
+        setTimeout(() => button.classList.remove('is-popping'), 240);
+      }
     }
 
     function changePointSize(val) {
       if (pointCloudMesh) {
         pointCloudMesh.material.size = parseFloat(val) * 0.0025;
       }
+    }
+
+    function syncGlassLayerStates() {
+      document.querySelectorAll('.glass-layer-button[data-layer]').forEach(button => {
+        const input = document.getElementById(`chk-${button.dataset.layer}`);
+        if (input) button.setAttribute('aria-pressed', String(input.checked));
+      });
     }
 
     function reset3DView() {
@@ -1033,6 +1097,55 @@
     }
 
     // --- Telemetry Polling Loop ---
+    let lastScanCompletionId = null;
+    let lastPipelineRunId = null;
+
+    function notify(title, description, icon = '✓', duration = 6000) {
+      const stack = document.getElementById('toast-stack');
+      const toast = document.createElement('div');
+      toast.className = 'swipe-toast';
+      toast.style.setProperty('--toast-duration', `${duration}ms`);
+      toast.innerHTML = `<div class="swipe-toast__card" role="status" tabindex="0"><span class="swipe-toast__icon" aria-hidden="true">${icon}</span><span class="swipe-toast__body"><span class="swipe-toast__title"></span><span class="swipe-toast__desc"></span></span><button class="swipe-toast__close" aria-label="Dismiss notification">×</button><i class="swipe-toast__fuse" aria-hidden="true"></i></div>`;
+      toast.querySelector('.swipe-toast__title').textContent = title;
+      toast.querySelector('.swipe-toast__desc').textContent = description;
+      stack.appendChild(toast);
+      const dismiss = () => {
+        if (!toast.isConnected || toast.dataset.leaving) return;
+        toast.dataset.leaving = 'true';
+        setTimeout(() => toast.remove(), 300);
+      };
+      toast.querySelector('.swipe-toast__close').addEventListener('click', dismiss);
+      let startY = null;
+      toast.querySelector('.swipe-toast__card').addEventListener('pointerdown', e => { startY = e.clientY; });
+      toast.querySelector('.swipe-toast__card').addEventListener('pointerup', e => { if (startY !== null && Math.abs(e.clientY - startY) > 38) dismiss(); startY = null; });
+      const timer = setTimeout(dismiss, duration);
+      toast.addEventListener('mouseenter', () => { clearTimeout(timer); toast.querySelector('.swipe-toast__fuse').style.animationPlayState = 'paused'; }, { once: true });
+      while (stack.children.length > 4) stack.firstElementChild.remove();
+    }
+
+    async function pollCompletionEvents() {
+      try {
+        const res = await fetch('/api/events');
+        const data = await res.json();
+        if (lastScanCompletionId === null) lastScanCompletionId = data.scan_completion_id;
+        else if (data.scan_completion_id > lastScanCompletionId) {
+          lastScanCompletionId = data.scan_completion_id;
+          notify('Scan pass complete', 'The robot finished its toolpath. Preparing reconstruction…', '✓', 8000);
+        }
+        const run = data.pipeline;
+        if (run && run.run_id) {
+          if (lastPipelineRunId === null) lastPipelineRunId = run.run_id;
+          else if (run.run_id > lastPipelineRunId) lastPipelineRunId = run.run_id;
+          if (run.run_id === lastPipelineRunId && !run.running && run.finished_at && !window['pipelineNotified' + run.run_id]) {
+            window['pipelineNotified' + run.run_id] = true;
+          const isTsdf = run.mode === 'tsdf' || run.mode === 'both';
+            const success = run.return_code === 0;
+            notify(success ? (isTsdf ? 'TSDF reconstruction complete' : 'Reconstruction complete') : 'Reconstruction stopped', success ? 'The mesh export is ready.' : `Open3D exited with code ${run.return_code}. Check the pipeline log for details.`, success ? '✓' : '!', 9000);
+          }
+        }
+      } catch (e) { console.warn('Completion event poll error:', e); }
+    }
+
     async function pollTelemetry() {
       try {
         const res = await fetch('/api/status');
@@ -1142,9 +1255,9 @@
       try {
         const res = await fetch('/api/action/save', { method: 'POST' });
         const data = await res.json();
-        alert(data.message);
+        notify(data.success ? 'Workpiece saved' : 'Save failed', data.message, data.success ? '✓' : '!', 6500);
       } catch (e) {
-        alert("Save error: " + e);
+        notify('Save failed', String(e), '!', 7000);
       }
     }
 
@@ -1154,9 +1267,9 @@
         const data = await res.json();
         lastPointCount = -1;
         fetchPointCloud();
-        alert(data.message);
+        notify(data.success ? 'Point cloud cleaned' : 'Cleaning failed', data.message, data.success ? '✓' : '!', 6500);
       } catch (e) {
-        alert("Clean error: " + e);
+        notify('Cleaning failed', String(e), '!', 7000);
       }
     }
 
@@ -1218,11 +1331,13 @@
         });
         const data = await res.json();
         if (!data.success) {
-          alert(data.message);
+          notify('Pipeline unavailable', data.message, '!', 7000);
+        } else {
+          notify('Reconstruction started', `${mode.toUpperCase()} is processing the captured scan stages.`, '⚡', 5000);
         }
         pollPipelineLogs();
       } catch (e) {
-        alert("Pipeline launch error: " + e);
+        notify('Pipeline launch failed', String(e), '!', 7000);
       }
     }
 
@@ -1408,8 +1523,10 @@
 
     window.onload = () => {
       init3D();
+      syncGlassLayerStates();
       fetchConfig();
       setInterval(pollTelemetry, 350);
+      setInterval(pollCompletionEvents, 700);
     };
   </script>
 
