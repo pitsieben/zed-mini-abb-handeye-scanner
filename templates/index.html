@@ -110,8 +110,8 @@
     /* Main Workspace Split */
     main {
       flex: 1;
-      display: grid;
-      grid-template-columns: minmax(310px, 25vw) minmax(0, 1fr);
+      position: relative;
+      display: block;
       min-height: 0;
       width: 100%;
       overflow: hidden;
@@ -119,11 +119,17 @@
 
     /* Left Video Feeds Column */
     .left-panel {
+      position: absolute;
+      z-index: 5;
+      top: 12px;
+      bottom: 12px;
+      left: 12px;
+      width: min(340px, 28vw);
       background: transparent;
       display: flex;
       flex-direction: column;
-      gap: 12px;
-      padding: 14px 10px 14px 14px;
+      gap: 10px;
+      padding: 0;
       overflow-y: auto;
     }
     .feed-card {
@@ -205,8 +211,8 @@
 
     /* Robot Telemetry Card */
     .telemetry-card {
-      background: linear-gradient(145deg, rgba(255,255,255,.075), rgba(255,255,255,.028) 52%, rgba(12,14,17,.28));
-      border: 1px solid var(--line);
+      background: linear-gradient(145deg, rgba(50,54,61,.64), rgba(24,27,32,.62) 52%, rgba(12,14,17,.56));
+      border: 1px solid rgba(255,255,255,.13);
       border-radius: 22px;
       padding: 16px 17px;
       display: flex;
@@ -214,8 +220,8 @@
       gap: 6px;
       font-size: 11px;
       font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-      box-shadow: inset 0 1px 0 rgba(255,255,255,.09), 0 12px 28px rgba(0,0,0,.14);
-      backdrop-filter: blur(26px) saturate(145%);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.12), 0 12px 32px rgba(0,0,0,.25);
+      backdrop-filter: blur(30px) saturate(155%);
     }
     .telemetry-heading { color: #858991; font-size: 9px; letter-spacing: .7px; padding-bottom: 3px; }
     .telemetry-metrics { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 8px; margin-bottom: 5px; }
@@ -252,15 +258,15 @@
 
     /* Right 3D Viewport */
     .viewport-panel {
-      position: relative;
-      width: calc(100% - 18px);
-      height: calc(100% - 28px);
-      margin: 14px 14px 14px 4px;
-      border: 1px solid rgba(255,255,255,.12);
-      border-radius: 24px;
-      background: linear-gradient(145deg, rgba(255,255,255,.055), rgba(255,255,255,.012) 38%, rgba(7,9,12,.12)), radial-gradient(ellipse at center, #111820, #080b0f 76%);
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      border: 0;
+      border-radius: 0;
+      background: radial-gradient(ellipse at center, #111820, #080b0f 76%);
       overflow: hidden;
-      box-shadow: inset 0 1px 0 rgba(255,255,255,.08), 0 14px 38px rgba(0,0,0,.18);
     }
     #three-container {
       width: 100%;
@@ -433,12 +439,13 @@
       display: flex;
     }
     .modal-window {
-      background: #171c22;
-      border: 1px solid var(--line);
+      background: linear-gradient(145deg, rgba(47,52,59,.88), rgba(22,26,31,.86));
+      border: 1px solid rgba(255,255,255,.15);
       border-radius: 18px;
       width: 540px;
       max-width: 95vw;
       box-shadow: 0 10px 40px rgba(0,0,0,0.8);
+      backdrop-filter: blur(32px) saturate(160%);
       overflow: hidden;
       animation: modalIn 0.2s ease;
     }
@@ -447,7 +454,7 @@
       to { opacity: 1; transform: scale(1.0); }
     }
     .modal-header {
-      background: rgba(255,255,255,.035);
+      background: rgba(255,255,255,.055);
       border-bottom: 1px solid var(--line);
       padding: 16px 20px;
       display: flex;
@@ -546,24 +553,23 @@
     ::-webkit-scrollbar { width: 8px; height: 8px; }
     ::-webkit-scrollbar-thumb { background: rgba(255,255,255,.16); border-radius: 8px; }
     @media (max-width: 1100px) {
-      body { height: auto; min-height: 100vh; overflow: auto; }
-      main { grid-template-columns: minmax(280px, 36%) minmax(0, 1fr); height: min(76vh, 780px); }
+      body { height: 100vh; height: 100dvh; min-height: 0; overflow: hidden; }
+      main { height: auto; }
+      .left-panel { width: min(320px, 34vw); }
       .btn { padding: 8px 10px; }
     }
     @media (max-width: 760px) {
-      main { display: flex; flex-direction: column; height: auto; }
-      main { overflow: auto; }
-      .left-panel { display: grid; grid-template-columns: 1fr 1fr; border: 0; }
-      .telemetry-card { grid-column: 1 / -1; }
-      .feed-media { height: clamp(130px, 35vw, 210px); }
-      .viewport-panel { height: 65vh; min-height: 420px; width: calc(100% - 20px); margin: 0 10px 12px; }
+      main { display: block; height: auto; overflow: hidden; }
+      .left-panel { top: 8px; bottom: 8px; left: 8px; width: min(290px, 47vw); gap: 8px; }
+      .telemetry-card { padding: 11px; gap: 5px; }
+      .telemetry-metrics { gap: 5px; }
+      .telemetry-metric { padding: 7px; }
+      .feed-media { height: clamp(115px, 19vh, 175px); }
+      .viewport-panel { height: 100%; min-height: 0; width: 100%; margin: 0; }
       .zed-overlay-box { top: 10px; right: 10px; padding: 8px; }
-      .origin-badge { top: 10px; left: 10px; max-width: 42%; font-size: 9px; }
-      footer { gap: 8px; padding: 8px 12px; font-size: 9px; }
-      footer > div:last-child { text-align: right; }
     }
     @media (max-width: 480px) {
-      .left-panel { padding: 10px; gap: 9px; }
+      .left-panel { width: min(270px, 52vw); }
       .feed-header { padding: 7px 9px; }
       .glass-layer-button { width: 42px; height: 42px; border-radius: 14px; }
     }
@@ -596,8 +602,8 @@
     @media (max-width: 700px) { #execution-dock { gap: 4px; padding: 7px; border-radius: 18px; max-width: calc(100vw - 20px); } .dock-item { width: 41px; height: 43px; border-radius: 13px; } #toast-stack { right: 16px; bottom: 82px; } }
     @media (prefers-reduced-motion: reduce) { .swipe-toast, .swipe-toast__fuse, .dock-item { animation-duration: .01ms !important; transition-duration: .01ms !important; } }
     .modal-footer {
-      background: #191924;
-      border-top: 1px solid #28283a;
+      background: rgba(255,255,255,.04);
+      border-top: 1px solid var(--line);
       padding: 12px 18px;
       display: flex;
       justify-content: space-between;

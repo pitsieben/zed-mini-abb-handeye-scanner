@@ -19,10 +19,12 @@ import json
 import socket
 import threading
 import subprocess
+import webbrowser
 import numpy as np
 import cv2
 import pyzed.sl as sl
 from flask import Flask, render_template, Response, jsonify, request, send_file
+from werkzeug.serving import make_server
 from scipy.spatial.transform import Rotation
 import scipy.spatial as spatial
 
@@ -869,9 +871,13 @@ if __name__ == "__main__":
     print("\n" + "=" * 68)
     print("           ROBOT 3D SCANNING STUDIO // WEB APPLICATION")
     print("=" * 68)
-    print(" -> Web Studio Interface:  http://localhost:8080")
+    web_url = "http://127.0.0.1:8080"
+    print(f" -> Web Studio Interface:  {web_url}")
     print(" -> Robot TCP Listen Port: 5000")
     print(f" -> Eye-in-Hand TCP Offset: X={cam_offset_mm[0]}mm, Y={cam_offset_mm[1]}mm, Z={cam_offset_mm[2]}mm")
     print("=" * 68 + "\n")
     
-    app.run(host="0.0.0.0", port=8080, debug=False, threaded=True)
+    # Bind before opening the browser so the first page request cannot race startup.
+    server = make_server("0.0.0.0", 8080, app, threaded=True)
+    threading.Timer(0.35, lambda: webbrowser.open(web_url)).start()
+    server.serve_forever()

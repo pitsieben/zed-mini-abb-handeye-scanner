@@ -16,8 +16,8 @@ echo =======================================================
 echo    STARTING ZED MINI + ROBOT WEB SCANNER APP
 echo =======================================================
 echo.
-echo Opening browser at http://localhost:8080 ...
-start http://localhost:8080
+echo The browser will open at http://127.0.0.1:8080 when the web server is ready.
+echo.
 
 "%PYTHON_EXE%" web_scanner_app.py
 
