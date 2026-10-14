@@ -1,0 +1,21 @@
+{
+  "name": "zed-m-hand-eye-calibration",
+  "version": "1.0.0",
+  "description": "An end-to-end robotic photogrammetry and 3D reconstruction system integrating a **Stereolabs ZED Mini camera** mounted on an **ABB industrial robot arm**.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/pitsieben/zed-mini-abb-handeye-scanner.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/pitsieben/zed-mini-abb-handeye-scanner/issues"
+  },
+  "homepage": "https://github.com/pitsieben/zed-mini-abb-handeye-scanner#readme"
+}
